@@ -48,6 +48,45 @@ export default function Home() {
                 </span>
               </p>
 
+              {/* Company Entry Box */}
+              <div className="max-w-lg mx-auto mb-12 animate-fade-in-up animation-delay-400">
+                <div className="bg-white/80 backdrop-blur-xl p-8 rounded-2xl border border-gray-200/60 shadow-2xl shadow-gray-900/10">
+                  <div className="text-center mb-6">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      Start tracking your company
+                    </h3>
+                    <p className="text-gray-600 text-sm">
+                      Enter your company or product name to begin AI-powered media monitoring
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                      <input
+                        type="text"
+                        placeholder="Enter your company or product name..."
+                        className="w-full pl-12 pr-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-300 text-lg bg-white/90"
+                      />
+                    </div>
+                    <Button 
+                      size="lg" 
+                      className="w-full group px-8 py-4 text-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300"
+                    >
+                      <span className="flex items-center justify-center">
+                        <Brain className="mr-2 w-5 h-5 group-hover:animate-pulse" />
+                        Start AI Analysis
+                        <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </span>
+                    </Button>
+                  </div>
+                  <div className="mt-4 text-center">
+                    <p className="text-xs text-gray-500">
+                      No credit card required • Free 7-day trial • Cancel anytime
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16 animate-fade-in-up animation-delay-500">
                 <Button size="lg" className="group px-8 py-4 text-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white shadow-2xl shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 transform hover:scale-105" asChild>
                   <Link href="/auth/signin">
