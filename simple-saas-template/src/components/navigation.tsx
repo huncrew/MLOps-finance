@@ -32,8 +32,8 @@ export function Navigation() {
         : 'bg-white/80 backdrop-blur-md'
     }`}>
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* Logo */}
+        <div className="relative flex items-center h-16">
+          {/* Logo - Fixed Left */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-3 group">
               <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/25 group-hover:shadow-emerald-500/40 transition-all duration-300">
@@ -48,8 +48,8 @@ export function Navigation() {
             </Link>
           </div>
 
-          {/* Desktop Navigation Links - Modern & Centered */}
-          <div className="hidden lg:flex items-center justify-center flex-1">
+          {/* Desktop Navigation Links - Absolutely Centered */}
+          <div className="hidden lg:flex absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
             <div className="flex items-center space-x-12 bg-white/60 backdrop-blur-xl px-8 py-3 rounded-full border border-gray-200/60 shadow-lg shadow-gray-900/5">
               <Link 
                 href="#features" 
@@ -84,8 +84,8 @@ export function Navigation() {
             </div>
           </div>
 
-          {/* Right side - Auth buttons */}
-          <div className="flex items-center space-x-4">
+          {/* Right side - Auth buttons - Fixed Right */}
+          <div className="flex items-center space-x-4 ml-auto">
             {status === "loading" ? (
               <div className="h-8 w-8 animate-pulse bg-gray-200 rounded-full" />
             ) : session ? (
