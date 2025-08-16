@@ -662,130 +662,239 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Enhanced CTA Section with AI Elements */}
-      <section className="py-32 bg-gradient-to-br from-gray-900 via-slate-900 to-emerald-900 relative overflow-hidden">
-        {/* Animated background patterns */}
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310b981' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-          }}></div>
-        </div>
+      {/* Card-Based CTA Section */}
+      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-gray-50 to-emerald-50 relative overflow-hidden">
+        {/* Subtle background elements */}
+        <div className="absolute top-20 left-20 w-64 h-64 bg-emerald-200 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-float"></div>
+        <div className="absolute bottom-20 right-20 w-80 h-80 bg-green-200 rounded-full mix-blend-multiply filter blur-xl opacity-10 animate-float animation-delay-2000"></div>
         
-        {/* AI-themed floating elements */}
-        <div className="absolute top-20 left-20 w-32 h-32 bg-emerald-500/10 rounded-full blur-xl animate-float"></div>
-        <div className="absolute bottom-20 right-20 w-40 h-40 bg-green-500/10 rounded-full blur-xl animate-float animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/4 w-24 h-24 bg-teal-500/10 rounded-full blur-xl animate-bounce-subtle"></div>
-
-        <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          {/* Premium AI badge */}
-          <div className="inline-flex items-center px-6 py-3 rounded-full bg-gradient-to-r from-emerald-500/20 to-green-500/20 backdrop-blur-xl border border-emerald-400/30 text-emerald-300 text-sm font-medium mb-8 animate-bounce-subtle">
-            <Bot className="w-4 h-4 mr-2" />
-            <span className="flex items-center">
-              Next-generation AI • Enterprise Ready
-              <Sparkles className="w-4 h-4 ml-2 animate-pulse" />
-            </span>
-          </div>
-          
-          <h2 className="text-5xl md:text-6xl font-bold text-white mb-8 leading-tight">
-            <span className="animate-fade-in-up">Ready to transform</span>
-            <span className="block bg-gradient-to-r from-emerald-400 via-green-400 to-teal-400 bg-clip-text text-transparent animate-gradient-x">your financial intelligence?</span>
-          </h2>
-          <p className="text-xl md:text-2xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed animate-fade-in-up animation-delay-300">
-            Join over 10,000 financial professionals already using our AI-powered platform to
-            <span className="text-emerald-300 font-semibold"> predict markets, optimize portfolios, and maximize returns.</span>
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12 animate-fade-in-up animation-delay-500">
-            <Button size="lg" className="group px-8 py-4 text-lg bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-2xl shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 transform hover:scale-105 border border-emerald-400/50" asChild>
-              <Link href="/auth/signin">
+        <div className="max-w-5xl mx-auto">
+          <Card className="bg-gradient-to-br from-gray-900 via-slate-900 to-emerald-900 border-0 shadow-2xl shadow-gray-900/25 overflow-hidden relative">
+            {/* Card background patterns */}
+            <div className="absolute inset-0 opacity-20">
+              <div className="absolute inset-0" style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310b981' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+              }}></div>
+            </div>
+            
+            {/* AI-themed floating elements inside card */}
+            <div className="absolute top-8 right-8 w-32 h-32 bg-emerald-500/10 rounded-full blur-xl animate-float"></div>
+            <div className="absolute bottom-8 left-8 w-24 h-24 bg-green-500/10 rounded-full blur-xl animate-float animation-delay-2000"></div>
+            
+            <CardContent className="p-12 md:p-16 text-center relative z-10">
+              {/* Premium AI badge */}
+              <div className="inline-flex items-center px-6 py-3 rounded-full bg-gradient-to-r from-emerald-500/20 to-green-500/20 backdrop-blur-xl border border-emerald-400/30 text-emerald-300 text-sm font-medium mb-8 animate-bounce-subtle">
+                <Bot className="w-4 h-4 mr-2" />
                 <span className="flex items-center">
-                  <Zap className="mr-2 w-5 h-5 group-hover:animate-pulse" />
-                  Start AI Analysis
-                  <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  Next-generation AI • Enterprise Ready
+                  <Sparkles className="w-4 h-4 ml-2 animate-pulse" />
                 </span>
-              </Link>
-            </Button>
-            <Button size="lg" variant="ghost" className="px-8 py-4 text-lg text-white hover:text-emerald-100 hover:bg-emerald-500/20 border border-white/20 hover:border-emerald-400/50 backdrop-blur-sm transition-all duration-300" asChild>
-              <Link href="#contact">
-                <span className="flex items-center">
-                  <Target className="mr-2 w-5 h-5" />
-                  Book AI Demo
-                </span>
-              </Link>
-            </Button>
-          </div>
+              </div>
+              
+              <h2 className="text-4xl md:text-6xl font-bold text-white mb-8 leading-tight">
+                <span className="animate-fade-in-up">Ready to transform</span>
+                <span className="block bg-gradient-to-r from-emerald-400 via-green-400 to-teal-400 bg-clip-text text-transparent animate-gradient-x">your financial intelligence?</span>
+              </h2>
+              
+              <p className="text-lg md:text-xl text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed animate-fade-in-up animation-delay-300">
+                Join over 10,000 financial professionals already using our AI-powered platform to
+                <span className="text-emerald-300 font-semibold"> predict markets, optimize portfolios, and maximize returns.</span>
+              </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-gray-400">
-            <div className="flex items-center">
-              <Shield className="w-4 h-4 mr-2 text-emerald-400" />
-              <span>Enterprise-grade security</span>
-            </div>
-            <div className="flex items-center">
-              <Zap className="w-4 h-4 mr-2 text-emerald-400" />
-              <span>14-day free AI trial</span>
-            </div>
-            <div className="flex items-center">
-              <Users className="w-4 h-4 mr-2 text-emerald-400" />
-              <span>No credit card required</span>
-            </div>
-          </div>
+              <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-12 animate-fade-in-up animation-delay-500">
+                <Button size="lg" className="group px-8 py-4 text-lg bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-2xl shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all duration-300 transform hover:scale-105 border border-emerald-400/50" asChild>
+                  <Link href="/auth/signin">
+                    <span className="flex items-center">
+                      <Zap className="mr-2 w-5 h-5 group-hover:animate-pulse" />
+                      Start AI Analysis
+                      <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </span>
+                  </Link>
+                </Button>
+                <Button size="lg" variant="ghost" className="px-8 py-4 text-lg text-white hover:text-emerald-100 hover:bg-emerald-500/20 border border-white/20 hover:border-emerald-400/50 backdrop-blur-sm transition-all duration-300" asChild>
+                  <Link href="#contact">
+                    <span className="flex items-center">
+                      <Target className="mr-2 w-5 h-5" />
+                      Book AI Demo
+                    </span>
+                  </Link>
+                </Button>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-6 text-sm text-gray-400">
+                <div className="flex items-center">
+                  <Shield className="w-4 h-4 mr-2 text-emerald-400" />
+                  <span>Enterprise-grade security</span>
+                </div>
+                <div className="flex items-center">
+                  <Zap className="w-4 h-4 mr-2 text-emerald-400" />
+                  <span>14-day free AI trial</span>
+                </div>
+                <div className="flex items-center">
+                  <Users className="w-4 h-4 mr-2 text-emerald-400" />
+                  <span>No credit card required</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-20">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8 mb-12">
+      {/* Modern AI-Themed Footer */}
+      <footer className="bg-gradient-to-br from-white via-gray-50 to-emerald-50 border-t border-gray-200/60 py-20 relative overflow-hidden">
+        {/* Subtle AI background elements */}
+        <div className="absolute top-0 left-0 w-full h-full opacity-30">
+          <div className="absolute top-10 left-20 w-32 h-32 bg-emerald-200 rounded-full mix-blend-multiply filter blur-xl animate-float"></div>
+          <div className="absolute bottom-10 right-20 w-40 h-40 bg-green-200 rounded-full mix-blend-multiply filter blur-xl animate-float animation-delay-2000"></div>
+        </div>
+        
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid md:grid-cols-4 gap-12 mb-16">
             <div className="md:col-span-2">
-              <h3 className="text-3xl font-bold mb-4 bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
-                SaaS Template
-              </h3>
-              <p className="text-gray-400 mb-6 max-w-md text-lg leading-relaxed">
-                Building the future of intelligent business automation.
-                Trusted by thousands of companies worldwide.
+              {/* Enhanced AI Intelligence branding */}
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/25">
+                  <Zap className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                    AI Intelligence
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-emerald-600 font-medium">Next-gen AI Platform</span>
+                  </div>
+                </div>
+              </div>
+              
+              <p className="text-gray-600 mb-8 max-w-md text-lg leading-relaxed">
+                Transforming financial intelligence through advanced AI.
+                <span className="text-emerald-600 font-semibold"> Trusted by 10,000+ professionals worldwide.</span>
               </p>
+              
+              {/* AI-themed social icons */}
               <div className="flex space-x-4">
-                <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer">
-                  <span className="text-sm font-semibold">T</span>
+                <div className="group w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center hover:scale-110 hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-300 cursor-pointer">
+                  <span className="text-white font-bold group-hover:animate-pulse">𝕏</span>
                 </div>
-                <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer">
-                  <span className="text-sm font-semibold">L</span>
+                <div className="group w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center hover:scale-110 hover:shadow-lg hover:shadow-blue-600/25 transition-all duration-300 cursor-pointer">
+                  <span className="text-white font-bold group-hover:animate-pulse">in</span>
                 </div>
-                <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer">
-                  <span className="text-sm font-semibold">G</span>
+                <div className="group w-12 h-12 bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center hover:scale-110 hover:shadow-lg hover:shadow-gray-800/25 transition-all duration-300 cursor-pointer">
+                  <span className="text-white font-bold group-hover:animate-pulse">☁</span>
+                </div>
+                <div className="group w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center hover:scale-110 hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 cursor-pointer">
+                  <Bot className="w-6 h-6 text-white group-hover:animate-pulse" />
                 </div>
               </div>
             </div>
 
+            {/* AI Intelligence Features */}
             <div>
-              <h4 className="text-lg font-semibold mb-4">Product</h4>
-              <ul className="space-y-3 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
+              <h4 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
+                <Brain className="w-5 h-5 mr-2 text-emerald-600" />
+                AI Features
+              </h4>
+              <ul className="space-y-4">
+                <li>
+                  <a href="#" className="group flex items-center text-gray-600 hover:text-emerald-600 transition-colors">
+                    <Cpu className="w-4 h-4 mr-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    Neural Analytics
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="group flex items-center text-gray-600 hover:text-emerald-600 transition-colors">
+                    <Database className="w-4 h-4 mr-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    Predictive Models
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="group flex items-center text-gray-600 hover:text-emerald-600 transition-colors">
+                    <Target className="w-4 h-4 mr-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    Smart Optimization
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="group flex items-center text-gray-600 hover:text-emerald-600 transition-colors">
+                    <Activity className="w-4 h-4 mr-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    Real-time Insights
+                  </a>
+                </li>
               </ul>
             </div>
 
+            {/* Platform */}
             <div>
-              <h4 className="text-lg font-semibold mb-4">Company</h4>
-              <ul className="space-y-3 text-gray-400">
-                <li><a href="#" className="hover:text-white transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
+              <h4 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
+                <Globe className="w-5 h-5 mr-2 text-emerald-600" />
+                Platform
+              </h4>
+              <ul className="space-y-4">
+                <li>
+                  <a href="#" className="group flex items-center text-gray-600 hover:text-emerald-600 transition-colors">
+                    <Shield className="w-4 h-4 mr-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    Enterprise Security
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="group flex items-center text-gray-600 hover:text-emerald-600 transition-colors">
+                    <Users className="w-4 h-4 mr-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    Team Collaboration
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="group flex items-center text-gray-600 hover:text-emerald-600 transition-colors">
+                    <TrendingUp className="w-4 h-4 mr-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    Performance Analytics
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="group flex items-center text-gray-600 hover:text-emerald-600 transition-colors">
+                    <Sparkles className="w-4 h-4 mr-3 opacity-60 group-hover:opacity-100 transition-opacity" />
+                    AI Automation
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
 
-          <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-500 text-sm">
-              © 2024 SaaS Template. All rights reserved.
-            </p>
-            <div className="flex space-x-6 mt-4 md:mt-0">
-              <a href="#" className="text-gray-500 hover:text-white text-sm transition-colors">Privacy Policy</a>
-              <a href="#" className="text-gray-500 hover:text-white text-sm transition-colors">Terms of Service</a>
-              <a href="#" className="text-gray-500 hover:text-white text-sm transition-colors">Cookie Policy</a>
+          {/* Enhanced footer bottom */}
+          <div className="border-t border-gray-200/60 pt-8">
+            <div className="flex flex-col lg:flex-row justify-between items-center space-y-6 lg:space-y-0">
+              <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-8">
+                <p className="text-gray-500 text-sm font-medium">
+                  © 2024 AI Intelligence Platform. Powered by advanced neural networks.
+                </p>
+                <div className="flex items-center space-x-2 text-xs text-emerald-600">
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                  <span className="font-medium">AI Systems Online</span>
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-6">
+                <a href="#" className="text-gray-500 hover:text-emerald-600 text-sm font-medium transition-colors flex items-center">
+                  <Shield className="w-4 h-4 mr-1" />
+                  Privacy Policy
+                </a>
+                <a href="#" className="text-gray-500 hover:text-emerald-600 text-sm font-medium transition-colors flex items-center">
+                  <Users className="w-4 h-4 mr-1" />
+                  Terms of Service
+                </a>
+                <a href="#" className="text-gray-500 hover:text-emerald-600 text-sm font-medium transition-colors flex items-center">
+                  <Bot className="w-4 h-4 mr-1" />
+                  AI Ethics
+                </a>
+              </div>
+            </div>
+            
+            {/* Quirky AI touch */}
+            <div className="mt-8 text-center">
+              <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-100 to-green-100 rounded-full border border-emerald-200">
+                <Sparkles className="w-4 h-4 text-emerald-600 mr-2 animate-pulse" />
+                <span className="text-sm text-emerald-700 font-medium">
+                  Built with ❤️ and 🤖 Advanced AI • Making finance smarter, one prediction at a time
+                </span>
+              </div>
             </div>
           </div>
         </div>

@@ -10,7 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Settings, Zap, Sparkles, Menu, X } from "lucide-react";
+import { User, LogOut, Settings, Zap, Sparkles, Menu, X, BarChart3, Target, Activity } from "lucide-react";
 
 export function Navigation() {
   const { data: session, status } = useSession();
@@ -48,29 +48,40 @@ export function Navigation() {
             </Link>
           </div>
 
-          {/* Desktop Navigation Links */}
-          <div className="hidden lg:flex items-center space-x-8">
-            <Link 
-              href="#features" 
-              className="relative text-gray-600 hover:text-emerald-600 transition-all duration-300 font-medium group"
-            >
-              Features
-              <span className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-emerald-500 to-green-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
-            </Link>
-            <Link 
-              href="#pricing" 
-              className="relative text-gray-600 hover:text-emerald-600 transition-all duration-300 font-medium group"
-            >
-              Pricing
-              <span className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-emerald-500 to-green-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
-            </Link>
-            <Link 
-              href="#demo" 
-              className="relative text-gray-600 hover:text-emerald-600 transition-all duration-300 font-medium group"
-            >
-              Demo
-              <span className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-emerald-500 to-green-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
-            </Link>
+          {/* Desktop Navigation Links - Modern & Centered */}
+          <div className="hidden lg:flex items-center justify-center flex-1">
+            <div className="flex items-center space-x-12 bg-white/60 backdrop-blur-xl px-8 py-3 rounded-full border border-gray-200/60 shadow-lg shadow-gray-900/5">
+              <Link 
+                href="#features" 
+                className="relative text-gray-700 hover:text-emerald-600 transition-all duration-300 font-semibold text-sm group px-4 py-2 rounded-lg hover:bg-emerald-50"
+              >
+                <span className="flex items-center">
+                  <BarChart3 className="w-4 h-4 mr-2 opacity-60 group-hover:opacity-100 transition-opacity" />
+                  Features
+                </span>
+                <span className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-emerald-500 to-green-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center"></span>
+              </Link>
+              <Link 
+                href="#pricing" 
+                className="relative text-gray-700 hover:text-emerald-600 transition-all duration-300 font-semibold text-sm group px-4 py-2 rounded-lg hover:bg-emerald-50"
+              >
+                <span className="flex items-center">
+                  <Target className="w-4 h-4 mr-2 opacity-60 group-hover:opacity-100 transition-opacity" />
+                  Pricing
+                </span>
+                <span className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-emerald-500 to-green-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center"></span>
+              </Link>
+              <Link 
+                href="#demo" 
+                className="relative text-gray-700 hover:text-emerald-600 transition-all duration-300 font-semibold text-sm group px-4 py-2 rounded-lg hover:bg-emerald-50"
+              >
+                <span className="flex items-center">
+                  <Activity className="w-4 h-4 mr-2 opacity-60 group-hover:opacity-100 transition-opacity" />
+                  Demo
+                </span>
+                <span className="absolute inset-x-0 -bottom-1 h-0.5 bg-gradient-to-r from-emerald-500 to-green-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-center"></span>
+              </Link>
+            </div>
           </div>
 
           {/* Right side - Auth buttons */}
