@@ -324,15 +324,77 @@ Branding Integration:
 - **No Extensive Validation**: Validate critical inputs only, trust user input otherwise
 - **No Complex Security**: Use platform defaults, avoid custom security implementations
 
+## Development Workflow & Testing
+
+### **SST Development Process**
+```bash
+# 1. Start development environment (hot reloading for full-stack)
+npm run dev:sst
+# or
+sst dev
+
+# 2. Frontend runs on localhost:3000 with hot reload
+# 3. Backend functions run locally but connect to real AWS services
+# 4. Real-time debugging and logging for both frontend and backend
+```
+
+### **API Key Configuration for Development**
+```bash
+# Add real API keys to .env.local for testing:
+STRIPE_SECRET_KEY=sk_test_your_actual_key
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret
+AWS_ACCESS_KEY_ID=your_aws_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret
+
+# Test endpoints will then work with real services
+```
+
+### **DynamoDB Data Architecture**
+```
+Current Template Tables:
+├── Users & Authentication (built-in)
+├── Subscriptions & Billing (built-in)
+└── AI Sessions (basic structure)
+
+Business-Specific Extensions:
+├── Analysis Results (add per business needs)
+├── Generated Reports (add per business needs)
+├── User Data Processing History (add per business needs)
+├── Business Metrics & KPIs (add per business needs)
+└── Custom Business Data (add per business needs)
+```
+
+### **Backend Extension Pattern**
+```typescript
+// Add new endpoints for business data:
+api.route("GET /business/data", "backend/functions/business.getData");
+api.route("POST /business/analyze", "backend/functions/business.analyze");
+api.route("GET /business/reports", "backend/functions/business.getReports");
+
+// DynamoDB patterns for business data:
+pk: "USER#userId", sk: "ANALYSIS#analysisId"
+pk: "USER#userId", sk: "REPORT#reportId"  
+pk: "BUSINESS#businessId", sk: "DATA#dataId"
+```
+
+### **Testing & Validation Process**
+1. **Local Development**: Use `sst dev` for hot reloading
+2. **API Testing**: Use the included `test-backend.js` script
+3. **Frontend Integration**: Test dashboard with real API calls
+4. **End-to-End Testing**: Complete user flows from signup to AI features
+5. **Production Deploy**: `npm run deploy:prod` when ready
+
 ## Integration Instructions for AI
 
 When working with this template alongside a business context file:
 
 1. **Read Both Files**: Understand template capabilities and business requirements
 2. **Map Requirements**: Identify which template features need customization
-3. **Prioritize Changes**: Focus on high-impact customizations first
-4. **Keep It Simple**: Choose the simplest implementation that works
-5. **Speed Over Perfection**: Get features working quickly, optimize later
-6. **Document Shortcuts**: Note any technical debt for future reference
+3. **Start Development**: Use `sst dev` for hot reloading during development
+4. **Add Business Data**: Extend DynamoDB schema for business-specific data
+5. **Create Business Endpoints**: Add API routes for business functionality
+6. **Test Incrementally**: Use test script and manual testing throughout
+7. **Keep It Simple**: Choose the simplest implementation that works
+8. **Speed Over Perfection**: Get features working quickly, optimize later
 
-This template provides the foundation for **rapid development** of premium AI-powered SaaS applications while maintaining professional design standards and **prioritizing speed to market over perfect architecture**.
+This template provides the foundation for **rapid development** of premium AI-powered SaaS applications with **full-stack hot reloading** and **real AWS service integration** while **prioritizing speed to market over perfect architecture**.
