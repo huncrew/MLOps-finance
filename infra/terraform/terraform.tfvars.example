@@ -1,0 +1,28 @@
+# Example Terraform variables file
+# Copy this to terraform.tfvars and customize for your environment
+
+# Project configuration
+project_name = "simple-saas-template"
+stage        = "dev"
+aws_region   = "us-east-1"
+
+# S3 configuration
+uploads_bucket_name = ""  # Leave empty to auto-generate
+
+# CORS configuration for API Gateway
+allowed_origins = [
+  "http://localhost:3000",
+  "https://localhost:3000",
+  # Add your production domain here
+  # "https://yourdomain.com"
+]
+
+# Lambda configuration
+lambda_timeout     = 30
+lambda_memory_size = 512
+
+# Logging configuration
+log_retention_days = 14
+
+# Optional KMS encryption for S3
+# kms_key_id = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"

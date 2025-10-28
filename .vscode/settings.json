@@ -1,2 +1,31 @@
 {
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+  "typescript.suggest.autoImports": true,
+  "python.defaultInterpreterPath": "./backend/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.linting.enabled": true,
+  "python.linting.ruffEnabled": true,
+  "python.formatting.provider": "black",
+  "python.formatting.blackPath": "black",
+  "files.associations": {
+    "*.tf": "terraform",
+    "*.tfvars": "terraform"
+  },
+  "terraform.experimentalFeatures.validateOnSave": true,
+  "terraform.experimentalFeatures.prefillRequiredFields": true,
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/frontend/node_modules": true,
+    "**/backend/dist": true,
+    "**/backend/__pycache__": true,
+    "**/.terraform": true,
+    "**/.next": true
+  },
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/backend/dist": true,
+    "**/backend/__pycache__": true,
+    "**/.terraform": true,
+    "**/.next": true
+  }
 }

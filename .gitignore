@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/frontend/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -12,13 +13,15 @@
 
 # testing
 /coverage
+/frontend/coverage
 
 # next.js
-/.next/
-/out/
+/frontend/.next/
+/frontend/out/
 
 # production
 /build
+/frontend/build
 
 # misc
 .DS_Store
@@ -32,16 +35,38 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+/frontend/.env*
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+/frontend/next-env.d.ts
 
-# sst
-.sst
+# Backend build artifacts
+/backend/dist/
+/backend/__pycache__/
+/backend/**/__pycache__/
+/backend/**/*.pyc
+/backend/**/*.pyo
+/backend/.pytest_cache/
+/backend/htmlcov/
+/backend/.coverage
 
-# open-next
-.open-next
+# Terraform
+/infra/terraform/.terraform/
+/infra/terraform/.terraform.lock.hcl
+/infra/terraform/terraform.tfstate*
+/infra/terraform/terraform.tfvars
+/infra/terraform/*.tfplan
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

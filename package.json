@@ -1,0 +1,50 @@
+{
+  "name": "simple-saas-template",
+  "version": "2.0.0",
+  "description": "A premium, production-ready SaaS starter template with Terraform + Python backend and Next.js frontend",
+  "keywords": [
+    "saas",
+    "template",
+    "terraform",
+    "python",
+    "nextjs",
+    "aws",
+    "stripe",
+    "ai",
+    "serverless"
+  ],
+  "author": "Simple SaaS Template",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/simple-saas-template.git"
+  },
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=frontend",
+    "build": "npm run build --workspace=frontend",
+    "start": "npm run start --workspace=frontend",
+    "lint": "npm run lint --workspace=frontend",
+    "type-check": "npm run type-check --workspace=frontend",
+    "backend:build": "cd backend && make build",
+    "backend:test": "cd backend && make test",
+    "backend:format": "cd backend && make format",
+    "backend:lint": "cd backend && make lint",
+    "backend:clean": "cd backend && make clean",
+    "infra:init": "cd infra/terraform && terraform init",
+    "infra:plan": "cd infra/terraform && terraform plan",
+    "infra:apply": "cd infra/terraform && terraform apply",
+    "infra:destroy": "cd infra/terraform && terraform destroy",
+    "infra:validate": "cd infra/terraform && terraform validate",
+    "infra:format": "cd infra/terraform && terraform fmt",
+    "deploy:prep": "npm run backend:build && npm run infra:validate",
+    "deploy": "npm run deploy:prep && npm run infra:apply"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
