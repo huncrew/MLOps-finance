@@ -16,6 +16,7 @@ import {
   Clock,
   Database
 } from "lucide-react";
+import { apiClient } from "@/lib/api";
 
 interface DocumentUploadProps {
   onUploadComplete?: (documentId: string, analysisId: string) => void;
@@ -68,26 +69,55 @@ export function DocumentUpload({
 
   const processFile = async (uploadFile: UploadedFile) => {
     try {
-      // Simulate upload progress
-      for (let progress = 0; progress <= 100; progress += 10) {
-        updateFileStatus(uploadFile.id, 'uploading', progress);
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // Step 1: Request upload URL
+      updateFileStatus(uploadFile.id, 'uploading', 15);
+      const uploadInit = await apiClient.createDocumentUpload(uploadFile.file);
+
+      if (!uploadInit.success || !uploadInit.data) {
+        throw new Error(uploadInit.error || 'Failed to create upload');
       }
 
-      // Simulate getting upload URL and uploading
-      const documentId = `doc_${uploadFile.id}`;
-      
-      // Update to analyzing status
-      updateFileStatus(uploadFile.id, 'analyzing', 100);
-      
-      // Simulate analysis
+      const { documentId, uploadUrl, s3Key } = uploadInit.data;
+
+      // Step 2: Upload file to storage
+      updateFileStatus(uploadFile.id, 'uploading', 60);
+      await apiClient.uploadFileToSignedUrl(uploadUrl, uploadFile.file);
+
+      // Step 3: Trigger analysis
+      updateFileStatus(uploadFile.id, 'analyzing', 80);
+      const analysisResponse = await apiClient.startDocumentAnalysis({
+        documentId,
+        filename: uploadFile.file.name,
+        s3Key,
+      });
+
+      if (!analysisResponse.success || !analysisResponse.data) {
+        throw new Error(analysisResponse.error || 'Analysis failed to start');
+      }
+
+      const analysisId = analysisResponse.data.analysisId;
+      updateFileStatus(uploadFile.id, 'analyzing', 90, analysisId);
+
+      // Step 4: Poll for completion (simple single check)
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const analysisId = `analysis_${uploadFile.id}`;
+      try {
+        const status = await apiClient.getAnalysisStatus(analysisId);
+        const statusPayload = status.data as any;
+        const statusValue = statusPayload?.status ?? statusPayload?.data?.status;
+        const statusError = statusPayload?.error || statusPayload?.data?.error;
+        if (!status.success || statusValue === 'failed') {
+          throw new Error(statusError || 'Analysis failed');
+        }
+      } catch (statusError) {
+        updateFileStatus(uploadFile.id, 'error', 100, analysisId, statusError instanceof Error ? statusError.message : 'Analysis failed');
+        throw statusError;
+      }
+
       updateFileStatus(uploadFile.id, 'completed', 100, analysisId);
-      
       onUploadComplete?.(documentId, analysisId);
+      
     } catch (error) {
+      console.error('Upload/analysis error:', error);
       throw error;
     }
   };

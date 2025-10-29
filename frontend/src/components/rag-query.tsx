@@ -1,310 +1,226 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Send, 
-  MessageSquare, 
-  FileText, 
-  Clock, 
-  TrendingUp,
-  Shield,
-  BookOpen,
-  AlertCircle,
-  ExternalLink,
-  Copy,
-  Check
-} from "lucide-react";
-
-interface QuerySource {
-  documentId: string;
-  documentName: string;
-  category: string;
-  chunkId: string;
-  relevanceScore: number;
-  excerpt: string;
-}
-
-interface QueryResponse {
-  queryId: string;
-  responseText: string;
-  sources: QuerySource[];
-  confidenceScore: number;
-  processingTimeMs: number;
-  tokenUsage: {
-    inputTokens: number;
-    outputTokens: number;
-  };
-}
-
-interface QueryHistory {
-  queryId: string;
-  queryText: string;
-  responseText: string;
-  createdDate: string;
-  confidenceScore: number;
-}
+import { MessageSquare, Send, Brain, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { apiClient } from "@/lib/api";
 
 interface RAGQueryProps {
-  onQuerySubmit?: (query: string, queryType: string) => Promise<QueryResponse>;
-  queryHistory?: QueryHistory[];
-  isLoading?: boolean;
+  onQueryComplete?: (queryId: string, response: string) => void;
+  onError?: (error: string) => void;
 }
 
-export function RAGQuery({ onQuerySubmit, queryHistory = [], isLoading = false }: RAGQueryProps) {
+interface QueryResult {
+  id: string;
+  query: string;
+  response: string;
+  confidence: number;
+  sources: string[];
+  timestamp: string;
+  status: 'processing' | 'completed' | 'error';
+}
+
+export function RAGQuery({ onQueryComplete, onError }: RAGQueryProps) {
   const [query, setQuery] = useState("");
-  const [queryType, setQueryType] = useState("general");
-  const [currentResponse, setCurrentResponse] = useState<QueryResponse | null>(null);
-  const [copiedText, setCopiedText] = useState<string | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [queryHistory, setQueryHistory] = useState<QueryResult[]>([]);
+
+  // Load query history on component mount
+  useEffect(() => {
+    loadQueryHistory();
+  }, []);
+
+  const loadQueryHistory = async () => {
+    try {
+      const response = await apiClient.getQueryHistory();
+      if (response.success && response.data) {
+        const payload = response.data as any;
+        const queries = payload.queries ?? payload.data?.queries ?? [];
+        setQueryHistory(
+          queries.map((item: any) => ({
+            id: item.queryId || Math.random().toString(36).substr(2, 9),
+            query: item.queryText || item.query || '',
+            response: item.responseText || item.response || '',
+            confidence: Number(item.confidenceScore ?? 0),
+            sources: (item.sources || []).map((source: any) => source.documentName || source.documentId || ''),
+            timestamp: item.createdDate || new Date().toISOString(),
+            status: 'completed' as const
+          }))
+        );
+      }
+    } catch (error) {
+      console.error('Failed to load query history:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!query.trim() || isLoading) return;
 
+    const queryId = Math.random().toString(36).substr(2, 9);
+    const newQuery: QueryResult = {
+      id: queryId,
+      query: query.trim(),
+      response: "",
+      confidence: 0,
+      sources: [],
+      timestamp: new Date().toISOString(),
+      status: 'processing'
+    };
+
+    setQueryHistory(prev => [newQuery, ...prev]);
+    setIsLoading(true);
+    const currentQuery = query.trim();
+    setQuery("");
+
     try {
-      const response = await onQuerySubmit?.(query.trim(), queryType);
-      if (response) {
-        setCurrentResponse(response);
+      const response = await apiClient.queryKnowledgeBase(currentQuery);
+      
+      if (response.success && response.data) {
+        const payload = response.data as any;
+        const responseData = payload.response || payload;
+        const responseText = responseData.responseText || responseData.response || 'No response received';
+        const confidenceScore = Number(responseData.confidenceScore ?? payload.confidenceScore ?? 0);
+        const sources = (responseData.sources || payload.sources || []).map((source: any) => source.documentName || source.documentId || '');
+
+        setQueryHistory(prev => prev.map(q => 
+          q.id === queryId 
+            ? { 
+                ...q, 
+                response: responseText,
+                confidence: confidenceScore,
+                sources,
+                status: 'completed' 
+              }
+            : q
+        ));
+
+        onQueryComplete?.(queryId, responseText);
+        await loadQueryHistory();
+      } else {
+        throw new Error(response.error || 'Query failed');
       }
     } catch (error) {
       console.error('Query error:', error);
+      setQueryHistory(prev => prev.map(q => 
+        q.id === queryId ? { ...q, status: 'error' } : q
+      ));
+      onError?.(error instanceof Error ? error.message : 'Query failed');
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedText(text);
-      setTimeout(() => setCopiedText(null), 2000);
-    } catch (error) {
-      console.error('Copy failed:', error);
+  const getStatusIcon = (status: QueryResult['status']) => {
+    switch (status) {
+      case 'processing':
+        return <Clock className="h-4 w-4 text-yellow-500 animate-pulse" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'error':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
     }
-  };
-
-  const getQueryTypeIcon = (type: string) => {
-    switch (type) {
-      case 'policy': return <Shield className="h-4 w-4" />;
-      case 'regulation': return <BookOpen className="h-4 w-4" />;
-      case 'compliance': return <AlertCircle className="h-4 w-4" />;
-      default: return <MessageSquare className="h-4 w-4" />;
-    }
-  };
-
-  const getQueryTypeColor = (type: string) => {
-    switch (type) {
-      case 'policy': return 'bg-blue-100 text-blue-700';
-      case 'regulation': return 'bg-purple-100 text-purple-700';
-      case 'compliance': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
-  const getConfidenceColor = (score: number) => {
-    if (score >= 0.8) return 'text-green-600';
-    if (score >= 0.6) return 'text-yellow-600';
-    return 'text-red-600';
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* Query Input */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-blue-600" />
-            Knowledge Base Query
-          </CardTitle>
-          <CardDescription>
-            Ask questions about policies, regulations, and compliance requirements
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Query Type</label>
-              <Select value={queryType} onValueChange={setQueryType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general">General Question</SelectItem>
-                  <SelectItem value="policy">Policy Inquiry</SelectItem>
-                  <SelectItem value="regulation">Regulatory Question</SelectItem>
-                  <SelectItem value="compliance">Compliance Check</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Your Question</label>
-              <Textarea
-                ref={textareaRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="e.g., What are the requirements for quarterly financial reporting?"
-                className="min-h-[100px] resize-none"
-                disabled={isLoading}
-              />
-            </div>
-
-            <Button 
-              type="submit" 
-              disabled={!query.trim() || isLoading}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-            >
+    <Card className="w-full max-w-4xl mx-auto">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Brain className="h-5 w-5 text-purple-600" />
+          RAG Knowledge Base Query
+        </CardTitle>
+        <CardDescription>
+          Ask questions about your regulatory documents and compliance frameworks
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Query Input */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex gap-2">
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ask about compliance requirements, regulations, or policies..."
+              className="flex-1"
+              disabled={isLoading}
+            />
+            <Button type="submit" disabled={!query.trim() || isLoading}>
               {isLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
-                  Processing...
-                </>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
               ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Submit Query
-                </>
+                <Send className="h-4 w-4" />
               )}
             </Button>
-          </form>
-        </CardContent>
-      </Card>
+          </div>
+          <div className="text-xs text-gray-500">
+            Example: "What are the Basel III capital requirements?" or "How should we handle GDPR data retention?"
+          </div>
+        </form>
 
-      {/* Current Response */}
-      {currentResponse && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Query Response</CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge className={`${getQueryTypeColor(queryType)}`}>
-                  {getQueryTypeIcon(queryType)}
-                  <span className="ml-1 capitalize">{queryType}</span>
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => copyToClipboard(currentResponse.responseText)}
-                >
-                  {copiedText === currentResponse.responseText ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Response Text */}
-            <div className="prose prose-sm max-w-none">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-800 leading-relaxed whitespace-pre-wrap">
-                  {currentResponse.responseText}
-                </p>
-              </div>
-            </div>
-
-            {/* Response Metadata */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
-              <div className="text-center">
-                <div className={`text-lg font-bold ${getConfidenceColor(currentResponse.confidenceScore)}`}>
-                  {Math.round(currentResponse.confidenceScore * 100)}%
-                </div>
-                <div className="text-xs text-gray-500">Confidence</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-gray-600">
-                  {(currentResponse.processingTimeMs / 1000).toFixed(1)}s
-                </div>
-                <div className="text-xs text-gray-500">Processing Time</div>
-              </div>
-              <div className="text-center">
-                <div className="text-lg font-bold text-gray-600">
-                  {currentResponse.tokenUsage.inputTokens + currentResponse.tokenUsage.outputTokens}
-                </div>
-                <div className="text-xs text-gray-500">Tokens Used</div>
-              </div>
-            </div>
-
-            {/* Sources */}
-            {currentResponse.sources.length > 0 && (
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-900 flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Sources ({currentResponse.sources.length})
-                </h4>
-                <div className="space-y-2">
-                  {currentResponse.sources.map((source, index) => (
-                    <div key={index} className="border rounded-lg p-3 bg-gray-50">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {source.category}
-                          </Badge>
-                          <span className="text-sm font-medium text-gray-900">
-                            {source.documentName}
-                          </span>
+        {/* Query History */}
+        {queryHistory.length > 0 && (
+          <div className="space-y-4">
+            <h4 className="font-medium text-gray-900 flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              Query History ({queryHistory.length})
+            </h4>
+            <div className="space-y-4 max-h-96 overflow-y-auto">
+              {queryHistory.map((result) => (
+                <div key={result.id} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        {getStatusIcon(result.status)}
+                        <span className="text-sm font-medium text-gray-900">
+                          {result.query}
+                        </span>
+                      </div>
+                      {result.status === 'completed' && (
+                        <>
+                          <div className="text-sm text-gray-700 mb-3 leading-relaxed">
+                            {result.response}
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <Badge variant="outline" className="text-xs">
+                              {Math.round(result.confidence * 100)}% confidence
+                            </Badge>
+                            {result.sources.length > 0 && (
+                              <span>Sources: {result.sources.join(", ")}</span>
+                            )}
+                          </div>
+                        </>
+                      )}
+                      {result.status === 'processing' && (
+                        <div className="text-sm text-gray-500">
+                          Searching knowledge base...
                         </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {Math.round(source.relevanceScore * 100)}% relevant
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        Document ID: {source.documentId}
-                      </p>
-                      <div className="bg-white p-2 rounded border">
-                        <p className="text-xs text-gray-700 italic">
-                          "{source.excerpt}"
-                        </p>
-                      </div>
+                      )}
+                      {result.status === 'error' && (
+                        <div className="text-sm text-red-600">
+                          Query failed. Please try again.
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Query History */}
-      {queryHistory.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Recent Queries</CardTitle>
-            <CardDescription>
-              Your previous Knowledge Base queries
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {queryHistory.slice(0, 5).map((historyItem) => (
-                <div key={historyItem.queryId} className="border rounded-lg p-3 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-gray-900 line-clamp-1">
-                      {historyItem.queryText}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-xs">
-                        {Math.round(historyItem.confidenceScore * 100)}%
-                      </Badge>
-                      <span className="text-xs text-gray-500">
-                        {new Date(historyItem.createdDate).toLocaleDateString()}
-                      </span>
+                    <div className="text-xs text-gray-400 ml-4">
+                      {new Date(result.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
-                  <p className="text-xs text-gray-600 line-clamp-2">
-                    {historyItem.responseText}
-                  </p>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+          </div>
+        )}
+
+        {queryHistory.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <Brain className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>No queries yet. Ask your first question about compliance or regulations!</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

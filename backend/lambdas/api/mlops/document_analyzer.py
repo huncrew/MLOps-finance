@@ -8,6 +8,7 @@ import json
 import uuid
 import hashlib
 from datetime import datetime
+from decimal import Decimal
 from typing import Dict, Any, List, Optional, Tuple
 import boto3
 from botocore.exceptions import ClientError
@@ -85,7 +86,10 @@ class DocumentAnalyzer:
             self._store_analysis_record(analysis_record)
             
             # Extract text from uploaded document
-            document_text = self._extract_document_text(analysis_request.document_id, analysis_request.filename)
+            s3_key = analysis_request.s3_key
+            if not s3_key:
+                s3_key = f"documents/{analysis_request.document_id}_{analysis_request.filename}"
+            document_text = self._extract_document_text(s3_key, analysis_request.filename)
             
             if not document_text:
                 raise ValueError("No text content extracted from document")
@@ -110,7 +114,10 @@ class DocumentAnalyzer:
             
             # Perform compliance analysis using Claude
             compliance_analysis = self._perform_compliance_analysis(
-                document_text, document_chunks, kb_matches, analysis_request.analysis_type
+                analysis_request,
+                document_text,
+                document_chunks,
+                kb_matches
             )
             
             # Calculate processing time
@@ -124,6 +131,7 @@ class DocumentAnalyzer:
             analysis_record.status = AnalysisStatus.COMPLETED.value
             analysis_record.completed_date = datetime.utcnow()
             analysis_record.results = compliance_analysis.to_dict()
+            analysis_record.gsi1pk = f"ANALYSIS_STATUS#{analysis_record.status}"
             self._store_analysis_record(analysis_record)
             
             logger.info(f"Completed analysis {analysis_id} in {processing_time_ms}ms")
@@ -143,6 +151,7 @@ class DocumentAnalyzer:
                     analysis_record.status = AnalysisStatus.FAILED.value
                     analysis_record.error_message = str(e)
                     analysis_record.completed_date = datetime.utcnow()
+                    analysis_record.gsi1pk = f"ANALYSIS_STATUS#{analysis_record.status}"
                     self._store_analysis_record(analysis_record)
             except:
                 pass
@@ -173,7 +182,7 @@ class DocumentAnalyzer:
             error_message=None
         )
     
-    def _extract_document_text(self, document_id: str, filename: str) -> str:
+    def _extract_document_text(self, s3_key: str, filename: str) -> str:
         """
         Extract text from uploaded document.
         
@@ -185,10 +194,6 @@ class DocumentAnalyzer:
             Extracted text content
         """
         try:
-            # Construct S3 key (assuming tenant/session structure)
-            # For now, use a simplified structure
-            s3_key = f"documents/{document_id}_{filename}"
-            
             # Download document from S3
             response = s3_client.get_object(Bucket=self.uploads_raw_bucket, Key=s3_key)
             document_bytes = response['Body'].read()
@@ -208,7 +213,7 @@ class DocumentAnalyzer:
                     raise ValueError(f"Unsupported file type: {filename}")
                     
         except Exception as e:
-            logger.error(f"Error extracting text from {document_id}: {e}")
+            logger.error(f"Error extracting text from {s3_key}: {e}")
             raise
     
     def _extract_pdf_text(self, pdf_bytes: bytes) -> str:
@@ -352,8 +357,13 @@ class DocumentAnalyzer:
             logger.error(f"Error calculating cosine similarity: {e}")
             return 0.0
     
-    def _perform_compliance_analysis(self, document_text: str, document_chunks: List[str], 
-                                   kb_matches: List[Dict[str, Any]], analysis_type: str) -> ComplianceAnalysis:
+    def _perform_compliance_analysis(
+        self,
+        analysis_request: AnalysisRequest,
+        document_text: str,
+        document_chunks: List[str],
+        kb_matches: List[Dict[str, Any]]
+    ) -> ComplianceAnalysis:
         """
         Perform compliance analysis using Claude.
         
@@ -371,7 +381,7 @@ class DocumentAnalyzer:
             kb_context = self._prepare_kb_context(kb_matches)
             
             # Create analysis prompt
-            prompt = self._create_analysis_prompt(document_text, kb_context, analysis_type)
+            prompt = self._create_analysis_prompt(document_text, kb_context, analysis_request.analysis_type)
             
             # Call Claude for analysis
             claude_response = self._call_claude_analysis(prompt)
@@ -380,8 +390,8 @@ class DocumentAnalyzer:
             analysis_results = self._parse_claude_response(claude_response, kb_matches)
             
             return ComplianceAnalysis(
-                document_id=str(uuid.uuid4()),  # This should be the actual document ID
-                user_id="",  # This should be set by the caller
+                document_id=analysis_request.document_id,
+                user_id=analysis_request.user_id,
                 analysis_date=datetime.utcnow(),
                 overall_score=analysis_results.get('overall_score', 0.5),
                 policy_matches=analysis_results.get('policy_matches', []),
@@ -396,8 +406,8 @@ class DocumentAnalyzer:
             logger.error(f"Error in compliance analysis: {e}")
             # Return default analysis on error
             return ComplianceAnalysis(
-                document_id=str(uuid.uuid4()),
-                user_id="",
+                document_id=analysis_request.document_id,
+                user_id=analysis_request.user_id,
                 analysis_date=datetime.utcnow(),
                 overall_score=0.0,
                 policy_matches=[],
@@ -580,11 +590,22 @@ Provide a compliance assessment in JSON format.
     def _store_analysis_record(self, analysis_record: AnalysisRecord) -> None:
         """Store analysis record in DynamoDB."""
         try:
-            self.table.put_item(Item=analysis_record.to_dynamodb_item())
+            item = self._convert_to_dynamo_value(analysis_record.to_dynamodb_item())
+            self.table.put_item(Item=item)
             logger.info(f"Stored analysis record for {analysis_record.analysis_id}")
         except Exception as e:
             logger.error(f"Error storing analysis record: {e}")
             raise
+
+    def _convert_to_dynamo_value(self, value: Any) -> Any:
+        """Recursively convert floats to Decimal for DynamoDB compatibility."""
+        if isinstance(value, float):
+            return Decimal(str(value))
+        if isinstance(value, list):
+            return [self._convert_to_dynamo_value(v) for v in value]
+        if isinstance(value, dict):
+            return {k: self._convert_to_dynamo_value(v) for k, v in value.items()}
+        return value
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

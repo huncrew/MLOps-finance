@@ -108,7 +108,8 @@ class AnalysisManager:
     
     def start_analysis(self, user_id: str, document_id: str, filename: str, 
                       analysis_type: str = AnalysisType.COMPLIANCE.value,
-                      priority: str = "normal") -> Dict[str, Any]:
+                      priority: str = "normal",
+                      s3_key: Optional[str] = None) -> Dict[str, Any]:
         """
         Start document analysis.
         
@@ -129,7 +130,8 @@ class AnalysisManager:
                 document_id=document_id,
                 filename=filename,
                 analysis_type=analysis_type,
-                priority=priority
+                priority=priority,
+                s3_key=s3_key
             )
             
             # Trigger analysis Lambda
@@ -511,6 +513,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         elif method == 'POST' and path.endswith('/analyze'):
             # Start document analysis
+            body['userId'] = user_id  # ensure validation sees user id
             validation_errors = validate_analysis_request_data(body)
             if validation_errors:
                 return error_response(
@@ -525,7 +528,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 document_id=body['documentId'],
                 filename=body['filename'],
                 analysis_type=body.get('analysisType', AnalysisType.COMPLIANCE.value),
-                priority=body.get('priority', 'normal')
+                priority=body.get('priority', 'normal'),
+                s3_key=body.get('s3Key')
             )
             return success_response(result)
         

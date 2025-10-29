@@ -10,7 +10,7 @@ def cors_headers() -> Dict[str, str]:
     return {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-user-id, x-correlation-id',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
     }
 

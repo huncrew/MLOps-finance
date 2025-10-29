@@ -11,6 +11,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import boto3
 from botocore.exceptions import ClientError
 import math
+from decimal import Decimal
 
 # Import common utilities
 from common.env import config
@@ -422,12 +423,23 @@ Please provide a helpful answer based on the context above. If you reference spe
                 token_usage=rag_response.token_usage
             )
             
-            self.table.put_item(Item=query_record.to_dynamodb_item())
+            item = self._convert_to_dynamo_value(query_record.to_dynamodb_item())
+            self.table.put_item(Item=item)
             logger.info(f"Stored query history for {rag_query.query_id}")
-            
+        
         except Exception as e:
             logger.error(f"Error storing query history: {e}")
             # Don't raise exception as this is not critical for the response
+
+    def _convert_to_dynamo_value(self, value: Any) -> Any:
+        """Recursively convert floats to Decimal for DynamoDB compatibility."""
+        if isinstance(value, float):
+            return Decimal(str(value))
+        if isinstance(value, list):
+            return [self._convert_to_dynamo_value(v) for v in value]
+        if isinstance(value, dict):
+            return {k: self._convert_to_dynamo_value(v) for k, v in value.items()}
+        return value
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { apiClient } from "@/lib/api";
 import { DocumentUpload } from "@/components/document-upload";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,61 +16,54 @@ import {
   Eye,
   Download,
   Clock,
-  BarChart3
+  BarChart3,
+  Upload
 } from "lucide-react";
 
-// Mock data for existing analyses
-const mockAnalyses = [
-  {
-    id: "analysis-001",
-    documentName: "Q3_Financial_Report.pdf",
-    uploadDate: "2024-10-27T10:30:00Z",
-    status: "completed",
-    complianceScore: 92,
-    riskLevel: "low",
-    frameworks: ["Basel III", "SOX"],
-    findings: {
-      gaps: 2,
-      risks: 1,
-      recommendations: 5
-    }
-  },
-  {
-    id: "analysis-002",
-    documentName: "Risk_Assessment_2024.docx",
-    uploadDate: "2024-10-27T09:15:00Z",
-    status: "completed",
-    complianceScore: 78,
-    riskLevel: "medium",
-    frameworks: ["GDPR", "Basel III"],
-    findings: {
-      gaps: 5,
-      risks: 3,
-      recommendations: 8
-    }
-  },
-  {
-    id: "analysis-003",
-    documentName: "Compliance_Manual_v2.pdf",
-    uploadDate: "2024-10-27T11:45:00Z",
-    status: "processing",
-    complianceScore: 0,
-    riskLevel: "unknown",
-    frameworks: [],
-    findings: {
-      gaps: 0,
-      risks: 0,
-      recommendations: 0
-    }
-  }
-];
-
 export default function DocumentsPage() {
-  const [analyses, setAnalyses] = useState(mockAnalyses);
+  const [analyses, setAnalyses] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadAnalyses();
+  }, []);
+
+  const loadAnalyses = async () => {
+    setIsLoading(true);
+    try {
+      const response = await apiClient.listAnalyses();
+      if (response.success && response.data) {
+        // The backend returns {success: true, data: {success: true, analyses: [...]}}
+        const analysesArray = response.data.data?.analyses || response.data.analyses || [];
+        const formattedAnalyses = analysesArray.map((item: any) => ({
+          id: item.analysis_id || item.id,
+          documentName: item.document_name || item.filename || 'Unknown Document',
+          uploadDate: item.created_date || item.uploadDate || new Date().toISOString(),
+          status: item.status || 'completed',
+          complianceScore: Math.round((parseFloat(item.summary?.overallScore || item.overall_score || 0)) * 100),
+          riskLevel: parseFloat(item.summary?.overallScore || item.overall_score || 0) >= 0.8 ? 'low' : parseFloat(item.summary?.overallScore || item.overall_score || 0) >= 0.6 ? 'medium' : 'high',
+          frameworks: item.frameworks || ['Basel III', 'GDPR'],
+          findings: {
+            gaps: item.compliance_gaps?.length || 0,
+            risks: item.risk_flags?.length || 0,
+            recommendations: item.recommendations?.length || 0
+          }
+        }));
+        setAnalyses(formattedAnalyses);
+      }
+    } catch (error) {
+      console.error('Failed to load analyses:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleUploadComplete = (documentId: string, analysisId: string) => {
     console.log("Upload complete:", { documentId, analysisId });
-    // In a real app, you would fetch the analysis results from the API
+    // Refresh the analyses list after upload
+    setTimeout(() => {
+      loadAnalyses();
+    }, 2000); // Give it time to process
   };
 
   const handleUploadError = (error: string) => {
@@ -121,6 +115,79 @@ export default function DocumentsPage() {
             </p>
           </div>
 
+          {/* Debug Section */}
+          <div className="mb-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Debug API - Document Analysis vs Knowledge Base</CardTitle>
+                <CardDescription>
+                  <strong>Note:</strong> This page shows <em>Document Analysis Results</em> (compliance analysis). 
+                  If you uploaded documents to the <em>Knowledge Base</em> (for RAG queries), 
+                  they will appear on the Knowledge Base page instead.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex gap-2 flex-wrap">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const response = await apiClient.healthCheck();
+                        console.log('Health Check:', response);
+                        alert('Health Check: ' + JSON.stringify(response, null, 2));
+                      } catch (error) {
+                        console.error('Health Check Error:', error);
+                        alert('Health Check Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                      }
+                    }}
+                  >
+                    Test Health Check
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const response = await apiClient.listAnalyses();
+                        console.log('List Analyses:', response);
+                        alert('Analysis Results: ' + JSON.stringify(response, null, 2));
+                      } catch (error) {
+                        console.error('List Analyses Error:', error);
+                        alert('Analysis Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                      }
+                    }}
+                  >
+                    Test Analysis Results
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const response = await apiClient.getKBDocuments();
+                        console.log('KB Documents:', response);
+                        alert('KB Documents: ' + JSON.stringify(response, null, 2));
+                      } catch (error) {
+                        console.error('KB Documents Error:', error);
+                        alert('KB Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                      }
+                    }}
+                  >
+                    Test KB Documents
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => window.open('/dashboard/knowledge', '_blank')}
+                  >
+                    Open Knowledge Base Page
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Upload Section */}
           <div className="mb-8">
             <DocumentUpload
@@ -135,14 +202,30 @@ export default function DocumentsPage() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900">Analysis Results</h2>
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <Clock className="h-4 w-4" />
-                <span>Last updated: {new Date().toLocaleString()}</span>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <Clock className="h-4 w-4" />
+                  <span>Last updated: {new Date().toLocaleString()}</span>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={loadAnalyses}
+                  disabled={isLoading}
+                >
+                  {isLoading ? 'Loading...' : 'Refresh'}
+                </Button>
               </div>
             </div>
 
-            <div className="grid gap-6">
-              {analyses.map((analysis) => (
+            {isLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading analyses...</p>
+              </div>
+            ) : analyses.length > 0 ? (
+              <div className="grid gap-6">
+                {analyses.map((analysis) => (
                 <Card key={analysis.id} className="hover:shadow-lg transition-shadow">
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -182,7 +265,7 @@ export default function DocumentsPage() {
                         <div>
                           <p className="text-sm font-medium text-gray-700 mb-2">Analyzed Frameworks:</p>
                           <div className="flex flex-wrap gap-2">
-                            {analysis.frameworks.map((framework) => (
+                            {analysis.frameworks.map((framework: string) => (
                               <Badge key={framework} variant="outline">
                                 {framework}
                               </Badge>
@@ -253,7 +336,18 @@ export default function DocumentsPage() {
                   </CardContent>
                 </Card>
               ))}
-            </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <FileText className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No analyses yet</h3>
+                <p className="text-gray-600 mb-6">Upload your first financial document to get started with AI-powered compliance analysis.</p>
+                <Button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Document
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
