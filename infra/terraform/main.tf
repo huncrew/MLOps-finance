@@ -893,7 +893,8 @@ locals {
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem",
         "dynamodb:Query",
-        "dynamodb:Scan"
+        "dynamodb:Scan",
+        "dynamodb:DescribeTable"
       ]
       Resource = [
         aws_dynamodb_table.main.arn,
@@ -925,7 +926,8 @@ locals {
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem",
         "dynamodb:Query",
-        "dynamodb:Scan"
+        "dynamodb:Scan",
+        "dynamodb:DescribeTable"
       ]
       Resource = [
         aws_dynamodb_table.main.arn,
@@ -1005,7 +1007,8 @@ locals {
         "dynamodb:UpdateItem",
         "dynamodb:DeleteItem",
         "dynamodb:Query",
-        "dynamodb:Scan"
+        "dynamodb:Scan",
+        "dynamodb:DescribeTable"
       ]
       Resource = [
         aws_dynamodb_table.main.arn,

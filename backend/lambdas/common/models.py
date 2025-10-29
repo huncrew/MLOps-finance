@@ -542,6 +542,7 @@ class AnalysisRequest:
     filename: str
     analysis_type: str = AnalysisType.COMPLIANCE.value
     priority: str = "normal"
+    s3_key: Optional[str] = None
     
     def __post_init__(self):
         """Post-initialization validation."""
@@ -558,13 +559,16 @@ class AnalysisRequest:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary format."""
-        return {
+        data: Dict[str, Any] = {
             'userId': self.user_id,
             'documentId': self.document_id,
             'filename': self.filename,
             'analysisType': self.analysis_type,
             'priority': self.priority
         }
+        if self.s3_key:
+            data['s3Key'] = self.s3_key
+        return data
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'AnalysisRequest':
@@ -574,7 +578,8 @@ class AnalysisRequest:
             document_id=data['documentId'],
             filename=data['filename'],
             analysis_type=data.get('analysisType', AnalysisType.COMPLIANCE.value),
-            priority=data.get('priority', 'normal')
+            priority=data.get('priority', 'normal'),
+            s3_key=data.get('s3Key')
         )
 
 

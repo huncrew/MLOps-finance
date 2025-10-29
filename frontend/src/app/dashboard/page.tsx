@@ -30,108 +30,140 @@ import {
   Plus,
   RefreshCw
 } from "lucide-react";
+import { RAGQuery } from "@/components/rag-query";
+import { apiClient } from "@/lib/api";
 
-// Mock data for the dashboard
-const mockStats = {
-  totalDocuments: 47,
-  documentsAnalyzed: 42,
-  averageComplianceScore: 0.87,
-  totalQueries: 156,
-  kbDocuments: 23,
-  processingQueue: 2
-};
+// Real data state
+interface DashboardStats {
+  totalDocuments: number;
+  documentsAnalyzed: number;
+  averageComplianceScore: number;
+  totalQueries: number;
+  kbDocuments: number;
+  processingQueue: number;
+}
 
-const mockRecentAnalyses = [
-  {
-    analysisId: "analysis-001",
-    documentName: "Q3_Financial_Report.pdf",
-    status: "completed" as const,
-    overallScore: 0.92,
-    createdDate: "2024-10-27T10:30:00Z",
-    complianceGaps: 2,
-    riskFlags: 1
-  },
-  {
-    analysisId: "analysis-002", 
-    documentName: "Risk_Assessment_2024.docx",
-    status: "completed" as const,
-    overallScore: 0.78,
-    createdDate: "2024-10-27T09:15:00Z",
-    complianceGaps: 5,
-    riskFlags: 3
-  },
-  {
-    analysisId: "analysis-003",
-    documentName: "Compliance_Manual_v2.pdf",
-    status: "processing" as const,
-    overallScore: 0,
-    createdDate: "2024-10-27T11:45:00Z",
-    complianceGaps: 0,
-    riskFlags: 0
-  }
-];
+interface AnalysisItem {
+  analysisId: string;
+  documentName: string;
+  status: 'completed' | 'processing' | 'failed';
+  overallScore: number;
+  createdDate: string;
+  complianceGaps: number;
+  riskFlags: number;
+}
 
-const mockRecentQueries = [
-  {
-    queryId: "query-001",
-    queryText: "What are the latest requirements for Basel III compliance?",
-    confidenceScore: 0.94,
-    createdDate: "2024-10-27T11:20:00Z",
-    responsePreview: "Basel III requires banks to maintain a minimum Common Equity Tier 1 (CET1) capital ratio of 4.5% of risk-weighted assets..."
-  },
-  {
-    queryId: "query-002",
-    queryText: "How should we handle GDPR data retention policies?",
-    confidenceScore: 0.89,
-    createdDate: "2024-10-27T10:45:00Z", 
-    responsePreview: "Under GDPR Article 5(1)(e), personal data should be kept in a form which permits identification of data subjects for no longer than..."
-  }
-];
+interface QueryItem {
+  queryId: string;
+  queryText: string;
+  confidenceScore: number;
+  createdDate: string;
+  responsePreview: string;
+}
 
-const mockKBDocuments = [
-  {
-    documentId: "kb-001",
-    filename: "Basel_III_Guidelines.pdf",
-    category: "Banking Regulation",
-    status: "processed" as const,
-    uploadDate: "2024-10-25T14:30:00Z",
-    chunkCount: 156
-  },
-  {
-    documentId: "kb-002",
-    filename: "GDPR_Compliance_Manual.pdf", 
-    category: "Data Protection",
-    status: "processed" as const,
-    uploadDate: "2024-10-24T16:20:00Z",
-    chunkCount: 89
-  },
-  {
-    documentId: "kb-003",
-    filename: "SOX_Requirements_2024.docx",
-    category: "Financial Reporting",
-    status: "processing" as const,
-    uploadDate: "2024-10-27T12:00:00Z",
-    chunkCount: 0
-  }
-];
+interface KBDocumentItem {
+  documentId: string;
+  filename: string;
+  category: string;
+  status: 'processed' | 'processing' | 'failed';
+  uploadDate: string;
+  chunkCount: number;
+}
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [stats, setStats] = useState<DashboardStats>({
+    totalDocuments: 0,
+    documentsAnalyzed: 0,
+    averageComplianceScore: 0,
+    totalQueries: 0,
+    kbDocuments: 0,
+    processingQueue: 0
+  });
+  const [recentAnalyses, setRecentAnalyses] = useState<AnalysisItem[]>([]);
+  const [recentQueries, setRecentQueries] = useState<QueryItem[]>([]);
+  const [kbDocuments, setKbDocuments] = useState<KBDocumentItem[]>([]);
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    return () => clearTimeout(timer);
+    loadDashboardData();
   }, []);
 
-  const handleRefresh = async () => {
+  const loadDashboardData = async () => {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsLoading(false);
+    try {
+      // Load all dashboard data
+      const [analysesResponse, queriesResponse, kbResponse] = await Promise.all([
+        apiClient.listAnalyses(),
+        apiClient.getQueryHistory(),
+        apiClient.getKBDocuments()
+      ]);
+
+      // Process analyses data
+      if (analysesResponse.success && analysesResponse.data) {
+        const analyses = analysesResponse.data.data?.analyses || analysesResponse.data.analyses || [];
+        const completedAnalyses = analyses.filter((a: any) => a.status === 'completed');
+        const avgScore = completedAnalyses.length > 0 ? 
+          completedAnalyses.reduce((sum: number, a: any) => sum + parseFloat(a.summary?.overallScore || 0), 0) / completedAnalyses.length : 0;
+
+        setStats(prev => ({
+          ...prev,
+          totalDocuments: analyses.length,
+          documentsAnalyzed: completedAnalyses.length,
+          averageComplianceScore: avgScore,
+          processingQueue: analyses.filter((a: any) => a.status === 'processing').length
+        }));
+
+        // Map to frontend format
+        setRecentAnalyses(analyses.slice(0, 5).map((a: any) => ({
+          analysisId: a.analysisId,
+          documentName: a.filename,
+          status: a.status,
+          overallScore: parseFloat(a.summary?.overallScore || 0),
+          createdDate: a.createdDate,
+          complianceGaps: a.summary?.complianceGapsCount || 0,
+          riskFlags: a.summary?.riskFlagsCount || 0
+        })));
+      }
+
+      // Process queries data
+      if (queriesResponse.success && queriesResponse.data) {
+        const queries = queriesResponse.data.data?.queries || queriesResponse.data.queries || [];
+        setStats(prev => ({ ...prev, totalQueries: queries.length }));
+        
+        setRecentQueries(queries.slice(0, 5).map((q: any) => ({
+          queryId: q.queryId,
+          queryText: q.queryText,
+          confidenceScore: q.confidenceScore,
+          createdDate: q.createdDate,
+          responsePreview: q.responseText?.substring(0, 100) + "..." || "No response"
+        })));
+      }
+
+      // Process KB documents data
+      if (kbResponse.success && kbResponse.data) {
+        const kbDocs = kbResponse.data.data?.documents || kbResponse.data.documents || [];
+        setStats(prev => ({ ...prev, kbDocuments: kbDocs.length }));
+        
+        setKbDocuments(kbDocs.map((doc: any) => ({
+          documentId: doc.id,
+          filename: doc.filename,
+          category: doc.category,
+          status: doc.embeddingStatus === 'completed' ? 'processed' : doc.embeddingStatus,
+          uploadDate: doc.uploadDate,
+          chunkCount: doc.chunkCount
+        })));
+      }
+
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    await loadDashboardData();
   };
 
   const handleViewAnalysis = (analysisId: string) => {
@@ -145,18 +177,18 @@ export default function DashboardPage() {
   };
 
   const handleUploadDocument = () => {
-    console.log("Upload document");
-    // TODO: Open document upload modal
+    // Navigate to documents page
+    window.location.href = '/dashboard/documents';
   };
 
   const handleNewQuery = () => {
-    console.log("New query");
-    // TODO: Navigate to query interface
+    // Navigate to queries tab
+    setActiveTab('queries');
   };
 
   const handleUploadKBDocument = () => {
-    console.log("Upload KB document");
-    // TODO: Open KB document upload modal
+    // Navigate to knowledge base page
+    window.location.href = '/dashboard/knowledge';
   };
 
   if (isLoading) {
@@ -195,6 +227,22 @@ export default function DashboardPage() {
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh
                 </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-white/20 border-white/30 text-white hover:bg-white/30"
+                  onClick={async () => {
+                    try {
+                      const response = await apiClient.healthCheck();
+                      alert(response.success ? 'Backend is healthy!' : 'Backend health check failed');
+                    } catch (error) {
+                      alert('Backend connection failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+                    }
+                  }}
+                >
+                  <Activity className="h-4 w-4 mr-2" />
+                  Test API
+                </Button>
               </div>
             </div>
           </div>
@@ -209,9 +257,9 @@ export default function DashboardPage() {
                 <FileText className="h-4 w-4 text-blue-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{mockStats.documentsAnalyzed}</div>
+                <div className="text-2xl font-bold text-blue-600">{stats.documentsAnalyzed}</div>
                 <p className="text-xs text-muted-foreground">
-                  {mockStats.totalDocuments} total uploaded
+                  {stats.totalDocuments} total uploaded
                 </p>
               </CardContent>
             </Card>
@@ -223,7 +271,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
-                  {Math.round(mockStats.averageComplianceScore * 100)}%
+                  {Math.round(stats.averageComplianceScore * 100)}%
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Above industry average
@@ -237,9 +285,9 @@ export default function DashboardPage() {
                 <MessageSquare className="h-4 w-4 text-purple-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-purple-600">{mockStats.totalQueries}</div>
+                <div className="text-2xl font-bold text-purple-600">{stats.totalQueries}</div>
                 <p className="text-xs text-muted-foreground">
-                  {mockStats.kbDocuments} KB documents
+                  {stats.kbDocuments} KB documents
                 </p>
               </CardContent>
             </Card>
@@ -250,7 +298,7 @@ export default function DashboardPage() {
                 <Clock className="h-4 w-4 text-orange-600" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-orange-600">{mockStats.processingQueue}</div>
+                <div className="text-2xl font-bold text-orange-600">{stats.processingQueue}</div>
                 <p className="text-xs text-muted-foreground">
                   Documents pending
                 </p>
@@ -298,7 +346,7 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {mockRecentAnalyses.map((analysis) => (
+                      {recentAnalyses.map((analysis) => (
                         <div key={analysis.analysisId} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
                           <div className="flex items-center space-x-3">
                             <div className={`w-3 h-3 rounded-full ${
@@ -337,7 +385,7 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {mockRecentQueries.map((query) => (
+                      {recentQueries.map((query) => (
                         <div key={query.queryId} className="p-3 border rounded-lg hover:bg-gray-50">
                           <div className="flex items-start justify-between mb-2">
                             <p className="font-medium text-sm line-clamp-2">{query.queryText}</p>
@@ -380,7 +428,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {mockRecentAnalyses.map((analysis) => (
+                    {recentAnalyses.map((analysis) => (
                       <div key={analysis.analysisId} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-4">
                           <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -446,7 +494,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {mockKBDocuments.map((doc) => (
+                    {kbDocuments.map((doc) => (
                       <div key={doc.documentId} className="flex items-center justify-between p-4 border rounded-lg">
                         <div className="flex items-center space-x-4">
                           <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -483,50 +531,16 @@ export default function DashboardPage() {
             )}
 
             {activeTab === "queries" && (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="flex items-center">
-                        <Brain className="h-5 w-5 mr-2 text-purple-600" />
-                        RAG Queries
-                      </CardTitle>
-                      <CardDescription>
-                        Ask questions about your regulatory knowledge base
-                      </CardDescription>
-                    </div>
-                    <Button onClick={handleNewQuery}>
-                      <Search className="h-4 w-4 mr-2" />
-                      New Query
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {mockRecentQueries.map((query) => (
-                      <div key={query.queryId} className="p-4 border rounded-lg">
-                        <div className="flex items-start justify-between mb-3">
-                          <p className="font-medium">{query.queryText}</p>
-                          <Badge variant="outline">
-                            {Math.round(query.confidenceScore * 100)}% confidence
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-3">
-                          {query.responsePreview}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-gray-500">
-                            {new Date(query.createdDate).toLocaleString()}
-                          </p>
-                          <Button variant="outline" size="sm" onClick={() => handleViewQuery(query.queryId)}>
-                            View Full Response
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-6">
+                <RAGQuery 
+                  onQueryComplete={(queryId, response) => {
+                    console.log('Query completed:', { queryId, response });
+                  }}
+                  onError={(error) => {
+                    console.error('Query error:', error);
+                  }}
+                />
+              </div>
             )}
           </div>
         </div>

@@ -46,3 +46,4 @@ When working on this repository, always load these context files first:
 - **Logging**: Use structured logging with correlation IDs
 - **Testing**: Write unit tests for business logic
 - **Real AWS integrations**: Avoid using mock data - focus on real, live AWS integrations and tests
+

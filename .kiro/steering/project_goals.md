@@ -1,147 +1,74 @@
-# Project Goals
+# MLOps Finance Platform
 
-## Primary Objectives
+AI-powered financial compliance and document analysis platform.
 
-### Deliver a Terraform + Python Serverless Backend
-- Replace SST/CDK infrastructure with Terraform for better control and standardization
-- Migrate TypeScript Lambda functions to Python 3.11 for enhanced AI/ML capabilities
-- Maintain all existing functionality while improving infrastructure management
-- Provide deterministic, reproducible deployments across environments
+## Essential Context
 
-### Preserve Existing Next.js + Stripe/Auth UX
-- Keep the existing Next.js frontend completely unchanged
-- Maintain all Stripe payment flows and subscription management
-- Preserve AWS Cognito authentication integration
-- Ensure seamless user experience during backend migration
+When working on this project, always reference these key documents:
 
-### Provide Clear Documentation and Acceptance Tests
-- Create comprehensive documentation for architecture and development workflows
-- Establish clear testing procedures for all components
-- Provide AI agent guidelines for future development
-- Document deployment and operational procedures
+1. **docs/context/context.md** - Business domain and financial compliance vocabulary
+2. **docs/architecture/architecture.md** - Technical architecture and data flows
+3. **backend/lambdas/common/models.py** - Data models and validation patterns
+4. **docs/api/mlops-endpoints.md** - API specifications and contracts
 
-## Business Goals
+## What We're Building
 
-### Rapid SaaS Development Foundation
-- Enable quick transformation of business ideas into production-ready AI platforms
-- Provide enterprise-grade design and architecture suitable for premium pricing
-- Support scalable infrastructure from startup to enterprise scale
-- Maintain speed-first development approach with acceptable technical debt
+**MLOps Finance** - Enterprise-grade compliance platform that uses AI to analyze financial documents, ensure regulatory adherence, and provide intelligent insights through RAG-powered knowledge base queries.
 
-### AI-First Architecture
-- Built specifically for AI/ML applications with data visualization
-- Support for AWS Bedrock integration and multiple AI models
-- Efficient token usage tracking and subscription-based billing
-- Foundation for advanced AI pipeline development
+### Core Features
+- **Document Analysis**: AI-powered compliance analysis against regulatory frameworks (Basel III, GDPR, SOX)
+- **Knowledge Base**: RAG system for querying regulatory documents and policies
+- **Real-time Processing**: Serverless architecture with AWS Bedrock and S3-based vector search
+- **Enterprise Security**: Multi-tenant data isolation with audit trails
 
-### Production-Ready Template
-- Professional aesthetic with premium feel for $100-500+/month SaaS
-- Complete authentication, payments, and subscription management
-- Monitoring, logging, and operational excellence built-in
-- Security best practices with least-privilege access
+## Architecture
 
-## Technical Goals
+### Backend Stack
+- **Python 3.11** Lambda functions for all API endpoints
+- **AWS Bedrock** for Claude AI analysis and Titan embeddings
+- **S3** for document storage and vector database
+- **DynamoDB** for metadata and user data persistence
+- **Terraform** for infrastructure as code
 
-### Infrastructure Excellence
-- Terraform-managed AWS resources with modular design
-- Least-privilege IAM policies with parameterized ARNs
-- CloudWatch monitoring and alerting for system health
-- Multi-environment support (dev, staging, production)
+### Frontend Stack
+- **Next.js** with TypeScript for the web application
+- **Tailwind CSS** for professional financial services UI
+- **Real-time API integration** with comprehensive error handling
 
-### Development Velocity
-- Automated build and deployment processes
-- Comprehensive testing framework with mocking
-- Code formatting and linting automation
-- Clear development workflows and documentation
+## Development Principles
 
-### Operational Efficiency
-- Structured logging with correlation IDs
-- Error handling and graceful degradation
-- Performance monitoring and optimization
-- Cost-effective resource utilization
+- **Real AWS integrations** - No mocks, use actual AWS services
+- **Clean, typed code** - Python type hints, proper error handling
+- **Serverless-first** - Lambda functions with S3/DynamoDB persistence
+- **Security by design** - User isolation, least-privilege IAM
+- **Cost-effective** - S3 vectors instead of expensive vector databases
 
-## Non-Goals
+## Key Workflows
 
-### What We're NOT Building
-- Complex enterprise patterns or over-engineered architecture
-- Extensive security frameworks beyond essential requirements
-- Perfect code quality or zero technical debt
-- Complex state management or advanced React patterns
+### Document Analysis Pipeline
+1. User uploads financial document → S3 presigned URL
+2. Lambda extracts text and chunks content
+3. Bedrock Titan generates embeddings
+4. Claude analyzes against KB for compliance gaps
+5. Results stored in DynamoDB + S3 for retrieval
 
-### Scope Limitations
-- No custom authentication systems (use AWS Cognito)
-- No complex permission systems (basic role-based access)
-- No extensive validation beyond essential security
-- No premature optimization for scale
+### RAG Query System
+1. User asks compliance question
+2. Query embedded with Titan
+3. S3 vector search finds relevant KB content
+4. Claude generates contextual response
+5. Query history stored for user
 
-### Development Philosophy
-- Speed over perfection for initial implementation
-- Pragmatic approach accepting some technical debt
-- Simple solutions over complex enterprise patterns
-- Focus on working features over architectural purity
+## Current Status
 
-## Success Metrics
+✅ **Production-ready core functionality**
+- Real AWS service integrations (S3, DynamoDB, Bedrock)
+- Complete document analysis pipeline
+- Working RAG query system
+- Multi-tenant user isolation
+- Professional frontend UI
 
-### Template Effectiveness
-- **Time to Market**: Business can launch in 2-4 weeks vs 3-6 months
-- **Professional Appearance**: Looks like premium SaaS worth $100-500+/month
-- **Feature Completeness**: 80%+ of common SaaS features included
-- **Scalability**: Handles 1-10,000+ users without architectural changes
-
-### Migration Success
-- **Functional Parity**: All existing features work identically
-- **Performance**: Response times equal or better than SST version
-- **Reliability**: Error rates and uptime match or exceed current system
-- **Maintainability**: Easier to modify and extend than previous version
-
-### Developer Experience
-- **Documentation Quality**: Clear, actionable guidance for all workflows
-- **Build Automation**: One-command build and deployment process
-- **Testing Coverage**: Core functionality covered with automated tests
-- **Debugging**: Clear error messages and logging for troubleshooting
-
-## Constraints and Assumptions
-
-### Technical Constraints
-- Must use Python 3.11 for Lambda runtime
-- Terraform version 1.6+ with AWS provider 5.x+
-- Maintain compatibility with existing Next.js frontend
-- Use AWS services only (no third-party infrastructure)
-
-### Business Constraints
-- Preserve existing Stripe integration and pricing model
-- Maintain current user authentication flows
-- Support existing subscription tiers and features
-- No breaking changes to user-facing functionality
-
-### Resource Constraints
-- Focus on essential features for MVP delivery
-- Accept technical debt for faster implementation
-- Prioritize working code over perfect architecture
-- Use AWS defaults and best practices where possible
-
-## Future Roadmap
-
-### Phase 1: Core Migration (Current)
-- Complete Terraform + Python migration
-- Maintain functional parity with SST version
-- Establish documentation and development workflows
-- Validate deployment and operational procedures
-
-### Phase 2: AI Enhancement
-- Advanced AI pipeline with document processing
-- Vector database integration for semantic search
-- Custom model fine-tuning capabilities
-- Real-time AI streaming responses
-
-### Phase 3: Enterprise Features
-- Multi-tenancy and organization management
-- Advanced analytics and business intelligence
-- Third-party integrations and API marketplace
-- White-label and reseller capabilities
-
-### Phase 4: Platform Evolution
-- Microservices architecture for complex workflows
-- Advanced security and compliance features
-- Global deployment and edge computing
-- AI model marketplace and custom training
+🔄 **Enhancement opportunities**
+- PDF/DOCX text extraction libraries
+- Advanced document processing (OCR, tables)
+- Performance optimizations

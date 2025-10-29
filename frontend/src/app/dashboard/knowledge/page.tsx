@@ -1,63 +1,119 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { 
-  Database, 
-  Search, 
-  Plus, 
-  FileText, 
+import {
+  Database,
+  Search,
+  Plus,
+  FileText,
   MessageSquare,
   Brain,
   Upload,
   Eye,
   Trash2
 } from "lucide-react";
-
-// Mock knowledge base documents
-const mockKBDocs = [
-  {
-    id: "kb-001",
-    filename: "Basel_III_Guidelines.pdf",
-    category: "Banking Regulation",
-    status: "processed",
-    uploadDate: "2024-10-25T14:30:00Z",
-    chunkCount: 156,
-    size: "2.4 MB"
-  },
-  {
-    id: "kb-002",
-    filename: "GDPR_Compliance_Manual.pdf",
-    category: "Data Protection",
-    status: "processed",
-    uploadDate: "2024-10-24T16:20:00Z",
-    chunkCount: 89,
-    size: "1.8 MB"
-  },
-  {
-    id: "kb-003",
-    filename: "SOX_Requirements_2024.docx",
-    category: "Financial Reporting",
-    status: "processing",
-    uploadDate: "2024-10-27T12:00:00Z",
-    chunkCount: 0,
-    size: "1.2 MB"
-  }
-];
+import { apiClient } from "@/lib/api";
 
 export default function KnowledgeBasePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [kbDocs, setKbDocs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [categories, setCategories] = useState<string[]>(["all"]);
 
-  const categories = ["all", "Banking Regulation", "Data Protection", "Financial Reporting"];
+  // Load KB documents on mount
+  useEffect(() => {
+    loadKBDocuments();
+  }, []);
 
-  const filteredDocs = mockKBDocs.filter(doc => {
-    const matchesSearch = doc.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         doc.category.toLowerCase().includes(searchQuery.toLowerCase());
+  const loadKBDocuments = async () => {
+    try {
+      const response = await apiClient.getKBDocuments();
+      if (response.success && response.data) {
+        const payload = response.data as any;
+        const documents = payload.documents ?? payload.data?.documents ?? [];
+
+        const normalized = documents.map((doc: any) => {
+          const status = doc.embeddingStatus || doc.status || 'pending';
+          const sizeValue = doc.size;
+          let displaySize = '—';
+          if (typeof sizeValue === 'string') {
+            displaySize = sizeValue;
+          } else if (typeof sizeValue === 'number') {
+            displaySize = sizeValue < 1024 ? `${sizeValue} B` : `${Math.round(sizeValue / 1024)} KB`;
+          }
+
+          return {
+            id: doc.id || doc.documentId,
+            filename: doc.filename,
+            category: doc.category || 'Uncategorized',
+            status,
+            uploadDate: doc.uploadDate,
+            chunkCount: Number(doc.chunkCount ?? 0),
+            size: displaySize,
+          };
+        });
+
+        setKbDocs(normalized);
+        const uniqueCategories = Array.from(new Set(normalized.map((doc: any) => doc.category).filter(Boolean)));
+        setCategories(["all", ...uniqueCategories]);
+      }
+    } catch (error) {
+      console.error('Failed to load KB documents:', error);
+    }
+  };
+
+  const handleUploadDocument = async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.docx,.doc,.txt';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      setIsLoading(true);
+      try {
+        const response = await apiClient.uploadKBDocument(file, selectedCategory !== "all" ? selectedCategory : undefined);
+        if (response.success) {
+          // Refresh the document list
+          await loadKBDocuments();
+        } else {
+          throw new Error(response.error || 'Upload failed');
+        }
+      } catch (error) {
+        console.error('Upload error:', error);
+        alert('Upload failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    input.click();
+  };
+
+  const handleDeleteDocument = async (documentId: string) => {
+    if (!confirm('Are you sure you want to delete this document?')) return;
+
+    try {
+      const response = await apiClient.deleteKBDocument(documentId);
+      if (response.success) {
+        await loadKBDocuments();
+      } else {
+        throw new Error(response.error || 'Delete failed');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Delete failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
+
+  const filteredDocs = kbDocs.filter(doc => {
+    const matchesSearch = (doc.filename || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (doc.category || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = selectedCategory === "all" || doc.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -74,8 +130,16 @@ export default function KnowledgeBasePage() {
                 Manage regulatory documents and compliance frameworks for RAG queries
               </p>
             </div>
-            <Button className="flex items-center">
-              <Plus className="h-4 w-4 mr-2" />
+            <Button 
+              className="flex items-center" 
+              onClick={handleUploadDocument}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
               Add Document
             </Button>
           </div>
@@ -113,67 +177,74 @@ export default function KnowledgeBasePage() {
 
           {/* Documents Grid */}
           <div className="grid gap-6">
-            {filteredDocs.map((doc) => (
-              <Card key={doc.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                        doc.status === 'processed' ? 'bg-green-100' : 'bg-yellow-100'
-                      }`}>
-                        <Database className={`h-5 w-5 ${
-                          doc.status === 'processed' ? 'text-green-600' : 'text-yellow-600'
-                        }`} />
+            {filteredDocs.map((doc) => {
+              const status = (doc.status || 'pending').toLowerCase();
+              const isProcessed = status === 'processed' || status === 'completed';
+              const statusLabel = (doc.status || 'pending').replace(/_/g, ' ');
+
+              return (
+                <Card key={doc.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          isProcessed ? 'bg-green-100' : 'bg-yellow-100'
+                        }`}>
+                          <Database className={`h-5 w-5 ${
+                            isProcessed ? 'text-green-600' : 'text-yellow-600'
+                          }`} />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">{doc.filename}</CardTitle>
+                          <CardDescription>
+                            {doc.category} • {doc.size} • {doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString() : '—'}
+                          </CardDescription>
+                        </div>
                       </div>
-                      <div>
-                        <CardTitle className="text-lg">{doc.filename}</CardTitle>
-                        <CardDescription>
-                          {doc.category} • {doc.size} • {new Date(doc.uploadDate).toLocaleDateString()}
-                        </CardDescription>
-                      </div>
+                      <Badge variant={isProcessed ? "default" : "secondary"}>
+                        {statusLabel.toUpperCase()}
+                      </Badge>
                     </div>
-                    <Badge variant={doc.status === 'processed' ? "default" : "secondary"}>
-                      {doc.status === 'processed' ? "Ready" : "Processing"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      {doc.status === 'processed' && (
-                        <>
-                          <span className="flex items-center">
-                            <FileText className="h-4 w-4 mr-1" />
-                            {doc.chunkCount} chunks
-                          </span>
-                          <span className="flex items-center">
+                  </CardHeader>
+
+                  <CardContent>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <span className="flex items-center">
+                          <FileText className="h-4 w-4 mr-1" />
+                          {doc.chunkCount ?? 0} chunks
+                        </span>
+                        {isProcessed ? (
+                          <span className="flex items-center text-green-600">
                             <MessageSquare className="h-4 w-4 mr-1" />
                             Available for queries
                           </span>
-                        </>
-                      )}
-                      {doc.status === 'processing' && (
-                        <span className="flex items-center">
-                          <Brain className="h-4 w-4 mr-1 animate-pulse" />
-                          Processing for RAG...
-                        </span>
-                      )}
+                        ) : (
+                          <span className="flex items-center text-yellow-600">
+                            <Brain className="h-4 w-4 mr-1 animate-pulse" />
+                            Processing embeddings...
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button size="sm" variant="outline">
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button size="sm" variant="outline">
-                        <Eye className="h-4 w-4 mr-2" />
-                        View
-                      </Button>
-                      <Button size="sm" variant="outline">
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {filteredDocs.length === 0 && (
@@ -184,7 +255,7 @@ export default function KnowledgeBasePage() {
                 <p className="text-gray-600 mb-4">
                   {searchQuery ? "Try adjusting your search terms" : "Upload regulatory documents to get started"}
                 </p>
-                <Button>
+                <Button onClick={handleUploadDocument}>
                   <Upload className="h-4 w-4 mr-2" />
                   Upload First Document
                 </Button>
