@@ -11,6 +11,10 @@ locals {
 
   # SSM parameter prefix
   ssm_prefix = "/${var.project_name}/${var.stage}"
+
+  # Vector search resources
+  vector_bucket_name = "${var.project_name}-${var.stage}-vectors-${random_id.bucket_suffix.hex}"
+  vector_index_name  = "${var.project_name}-${var.stage}-kb-index"
 }
 
 data "aws_caller_identity" "current" {}
@@ -215,6 +219,20 @@ resource "aws_ssm_parameter" "kb_vectors_bucket_name" {
   name  = "${local.ssm_prefix}/mlops/kb-vectors-bucket-name"
   type  = "String"
   value = module.kb_vectors_bucket.bucket_name
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "vector_bucket_name" {
+  name  = "${local.ssm_prefix}/mlops/vector-bucket-name"
+  type  = "String"
+  value = local.vector_bucket_name
+  tags  = local.common_tags
+}
+
+resource "aws_ssm_parameter" "vector_index_name" {
+  name  = "${local.ssm_prefix}/mlops/vector-index-name"
+  type  = "String"
+  value = local.vector_index_name
   tags  = local.common_tags
 }
 
@@ -1035,6 +1053,29 @@ locals {
       ]
       Resource = [
         "arn:aws:bedrock:${var.aws_region}::foundation-model/*"
+      ]
+    },
+    # S3 Vector Search permissions
+    {
+      Effect = "Allow"
+      Action = [
+        "s3vectors:CreateVectorBucket",
+        "s3vectors:GetVectorBucket",
+        "s3vectors:ListVectorBuckets",
+        "s3vectors:PutVectorBucketPolicy",
+        "s3vectors:DeleteVectorBucketPolicy",
+        "s3vectors:CreateIndex",
+        "s3vectors:GetIndex",
+        "s3vectors:ListIndexes",
+        "s3vectors:PutVectors",
+        "s3vectors:DeleteVectors",
+        "s3vectors:ListVectors",
+        "s3vectors:GetVectors",
+        "s3vectors:QueryVectors"
+      ]
+      Resource = [
+        format("arn:aws:s3vectors:%s:%s:bucket/%s", var.aws_region, data.aws_caller_identity.current.account_id, local.vector_bucket_name),
+        format("arn:aws:s3vectors:%s:%s:bucket/%s/index/%s", var.aws_region, data.aws_caller_identity.current.account_id, local.vector_bucket_name, local.vector_index_name)
       ]
     },
     # Lambda invocation permissions for internal orchestrations

@@ -49,6 +49,16 @@ output "kb_vectors_bucket_name" {
   value       = module.kb_vectors_bucket.bucket_name
 }
 
+output "vector_bucket_name" {
+  description = "S3 Vector Search bucket name"
+  value       = local.vector_bucket_name
+}
+
+output "vector_index_name" {
+  description = "S3 Vector Search index name"
+  value       = local.vector_index_name
+}
+
 output "uploads_raw_bucket_name" {
   description = "MLOps user uploads raw documents bucket name"
   value       = module.uploads_raw_bucket.bucket_name

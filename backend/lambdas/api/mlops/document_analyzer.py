@@ -30,12 +30,14 @@ try:
     bedrock_client = boto3.client('bedrock-runtime', region_name=config.aws_region)
     dynamodb = boto3.resource('dynamodb', region_name=config.aws_region)
     ssm_client = boto3.client('ssm', region_name=config.aws_region)
+    s3vectors_client = boto3.client('s3vectors', region_name=config.aws_region)
 except Exception as e:
     logger.warning(f"AWS clients not available: {e}")
     s3_client = None
     bedrock_client = None
     dynamodb = None
     ssm_client = None
+    s3vectors_client = None
 
 
 class DocumentAnalyzer:
@@ -46,8 +48,12 @@ class DocumentAnalyzer:
         self.uploads_raw_bucket = self._get_ssm_parameter('/mlops/uploads-raw-bucket-name')
         self.kb_vectors_bucket = self._get_ssm_parameter('/mlops/kb-vectors-bucket-name')
         self.analysis_reports_bucket = self._get_ssm_parameter('/mlops/analysis-reports-bucket-name')
+        self.vector_bucket_name = self._get_ssm_parameter('/mlops/vector-bucket-name')
+        self.vector_index_name = self._get_ssm_parameter('/mlops/vector-index-name')
         self.table_name = self._get_ssm_parameter('/database/table-name')
         self.table = dynamodb.Table(self.table_name) if dynamodb else None
+        self._vector_search_checked = False
+        self._vector_search_available = False
         
         # Analysis settings
         self.max_chunk_size = 3000
@@ -275,47 +281,132 @@ class DocumentAnalyzer:
             # Return zero vector as fallback
             return [0.0] * 1536
     
+    def _is_vector_search_available(self) -> bool:
+        """Determine if S3 Vector Search resources are available."""
+        if not s3vectors_client or not self.vector_bucket_name or not self.vector_index_name:
+            return False
+        if self._vector_search_checked:
+            return self._vector_search_available
+
+        try:
+            s3vectors_client.get_vector_bucket(vectorBucketName=self.vector_bucket_name)
+            s3vectors_client.get_index(
+                vectorBucketName=self.vector_bucket_name,
+                indexName=self.vector_index_name
+            )
+            self._vector_search_available = True
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', '')
+            if error_code in ('ResourceNotFoundException', 'NotFoundException'):
+                logger.warning("Vector search resources missing; using S3 fallback")
+            else:
+                logger.error(f"Vector search lookup failed: {e}")
+            self._vector_search_available = False
+        except Exception as e:
+            logger.error(f"Vector search check error: {e}")
+            self._vector_search_available = False
+
+        self._vector_search_checked = True
+        return self._vector_search_available
+
     def _search_knowledge_base(self, document_embeddings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Search Knowledge Base for similar content.
         
-        Args:
-            document_embeddings: List of document chunk embeddings
-            
-        Returns:
-            List of matching KB chunks with similarity scores
+        Prefers S3 Vector Search when available, otherwise falls back to
+        scanning stored embedding files in S3.
         """
+        if self._is_vector_search_available():
+            try:
+                matches = self._search_vector_store(document_embeddings)
+                if matches:
+                    return matches
+            except Exception as e:
+                logger.error(f"Vector search query failed, falling back to S3 scan: {e}")
+
+        return self._search_knowledge_base_bruteforce(document_embeddings)
+
+    def _search_vector_store(self, document_embeddings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Search the S3 Vector Search index for relevant chunks."""
+        if not document_embeddings:
+            return []
+
+        aggregated_matches: Dict[Tuple[str, int], Dict[str, Any]] = {}
+
+        for doc_chunk in document_embeddings:
+            try:
+                response = s3vectors_client.query_vectors(
+                    vectorBucketName=self.vector_bucket_name,
+                    indexName=self.vector_index_name,
+                    topK=self.max_kb_matches,
+                    queryVector={'float32': [float(x) for x in doc_chunk['embedding']]},
+                    returnMetadata=True,
+                    returnDistance=True
+                )
+            except Exception as e:
+                logger.error(f"Vector search query error: {e}")
+                continue
+
+            for result in response.get('vectors', []):
+                metadata = result.get('metadata') or {}
+                vector_key = result.get('key')
+                distance = result.get('distance')
+                if distance is not None:
+                    similarity = max(0.0, min(1.0, 1.0 - float(distance)))
+                else:
+                    similarity = float(metadata.get('similarity', 0.0))
+
+                if similarity < self.similarity_threshold:
+                    continue
+
+                match_key = (vector_key, doc_chunk['chunk_index'])
+                match_payload = {
+                    'kb_document_id': metadata.get('documentId') or (vector_key or '').split('#')[0],
+                    'kb_chunk_id': metadata.get('chunkId') or vector_key,
+                    'kb_content': metadata.get('chunkText', ''),
+                    'kb_metadata': metadata,
+                    'doc_chunk_index': doc_chunk['chunk_index'],
+                    'doc_content': doc_chunk['text'],
+                    'similarity_score': similarity
+                }
+
+                existing = aggregated_matches.get(match_key)
+                if not existing or existing['similarity_score'] < similarity:
+                    aggregated_matches[match_key] = match_payload
+
+        matches = list(aggregated_matches.values())
+        matches.sort(key=lambda x: x['similarity_score'], reverse=True)
+        return matches[:self.max_kb_matches]
+
+    def _search_knowledge_base_bruteforce(self, document_embeddings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Fallback: scan embedding files stored in S3."""
         try:
             matches = []
-            
-            # List all KB embedding files
+
             response = s3_client.list_objects_v2(
                 Bucket=self.kb_vectors_bucket,
                 Prefix="embeddings/"
             )
-            
+
             if 'Contents' not in response:
                 logger.warning("No KB embeddings found")
                 return matches
-            
-            # Process each KB document
+
             for obj in response['Contents']:
                 if not obj['Key'].endswith('.json'):
                     continue
-                
+
                 try:
-                    # Load KB document embeddings
                     kb_response = s3_client.get_object(Bucket=self.kb_vectors_bucket, Key=obj['Key'])
                     kb_data = json.loads(kb_response['Body'].read())
-                    
-                    # Compare each document chunk with KB chunks
+
                     for doc_chunk in document_embeddings:
                         for kb_chunk in kb_data.get('chunks', []):
                             similarity = self._calculate_cosine_similarity(
-                                doc_chunk['embedding'], 
+                                doc_chunk['embedding'],
                                 kb_chunk['embedding']
                             )
-                            
+
                             if similarity >= self.similarity_threshold:
                                 matches.append({
                                     'kb_document_id': kb_data['documentId'],
@@ -326,17 +417,16 @@ class DocumentAnalyzer:
                                     'doc_content': doc_chunk['text'],
                                     'similarity_score': similarity
                                 })
-                
+
                 except Exception as e:
                     logger.warning(f"Error processing KB document {obj['Key']}: {e}")
                     continue
-            
-            # Sort by similarity score and limit results
+
             matches.sort(key=lambda x: x['similarity_score'], reverse=True)
             return matches[:self.max_kb_matches]
-            
+
         except Exception as e:
-            logger.error(f"Error searching knowledge base: {e}")
+            logger.error(f"Error searching knowledge base with fallback: {e}")
             return []
     
     def _calculate_cosine_similarity(self, vec1: List[float], vec2: List[float]) -> float:

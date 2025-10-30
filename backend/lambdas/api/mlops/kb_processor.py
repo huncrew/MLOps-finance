@@ -22,18 +22,22 @@ from common.models import (
 
 logger = get_logger(__name__)
 
+MAX_VECTOR_METADATA_TEXT_LENGTH = 1500
+
 # Initialize AWS clients
 try:
     s3_client = boto3.client('s3', region_name=config.aws_region)
     bedrock_client = boto3.client('bedrock-runtime', region_name=config.aws_region)
     dynamodb = boto3.resource('dynamodb', region_name=config.aws_region)
     ssm_client = boto3.client('ssm', region_name=config.aws_region)
+    s3vectors_client = boto3.client('s3vectors', region_name=config.aws_region)
 except Exception as e:
     logger.warning(f"AWS clients not available: {e}")
     s3_client = None
     bedrock_client = None
     dynamodb = None
     ssm_client = None
+    s3vectors_client = None
 
 
 class KBProcessor:
@@ -43,8 +47,11 @@ class KBProcessor:
         """Initialize the KB processor."""
         self.kb_raw_bucket = self._get_ssm_parameter('/mlops/kb-raw-bucket-name')
         self.kb_vectors_bucket = self._get_ssm_parameter('/mlops/kb-vectors-bucket-name')
+        self.vector_bucket_name = self._get_ssm_parameter('/mlops/vector-bucket-name')
+        self.vector_index_name = self._get_ssm_parameter('/mlops/vector-index-name')
         self.table_name = self._get_ssm_parameter('/database/table-name')
         self.table = dynamodb.Table(self.table_name) if dynamodb else None
+        self._vector_resources_checked = False
         
         # Document processing settings
         self.max_chunk_size = 1000  # characters
@@ -65,6 +72,105 @@ class KBProcessor:
         except Exception as e:
             logger.error(f"Failed to get SSM parameter {param_name}: {e}")
             return ""
+
+    def _ensure_vector_resources(self) -> bool:
+        """Ensure S3 Vector Search resources exist before use."""
+        if self._vector_resources_checked:
+            return bool(self.vector_bucket_name and self.vector_index_name and s3vectors_client)
+
+        if not s3vectors_client or not self.vector_bucket_name or not self.vector_index_name:
+            logger.warning("Vector search configuration missing; continuing without S3 Vector Search")
+            self._vector_resources_checked = True
+            return False
+
+        try:
+            bucket = s3vectors_client.get_vector_bucket(
+                vectorBucketName=self.vector_bucket_name
+            )['vectorBucket']
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', '')
+            if error_code in ('ResourceNotFoundException', 'NotFoundException'):
+                logger.info(f"Creating vector bucket {self.vector_bucket_name}")
+                s3vectors_client.create_vector_bucket(
+                    vectorBucketName=self.vector_bucket_name,
+                    encryptionConfiguration={'sseType': 'AES256'}
+                )
+                bucket = s3vectors_client.get_vector_bucket(
+                    vectorBucketName=self.vector_bucket_name
+                )['vectorBucket']
+            else:
+                logger.error(f"Unable to access vector bucket: {e}")
+                self._vector_resources_checked = True
+                return False
+
+        bucket_arn = bucket.get('vectorBucketArn')
+
+        try:
+            s3vectors_client.get_index(
+                vectorBucketName=self.vector_bucket_name,
+                indexName=self.vector_index_name
+            )
+        except ClientError as e:
+            error_code = e.response.get('Error', {}).get('Code', '')
+            if error_code in ('ResourceNotFoundException', 'NotFoundException'):
+                logger.info(f"Creating vector index {self.vector_index_name}")
+                s3vectors_client.create_index(
+                    vectorBucketName=self.vector_bucket_name,
+                    indexName=self.vector_index_name,
+                    dataType='float32',
+                    dimension=1536,
+                    distanceMetric='cosine'
+                )
+            else:
+                logger.error(f"Unable to access vector index: {e}")
+                self._vector_resources_checked = True
+                return False
+
+        self._vector_resources_checked = True
+        return True
+
+    def _upsert_vectors(self, document_id: str, chunks: List[DocumentChunk]) -> None:
+        """Insert or update chunk embeddings in S3 Vector Search."""
+        if not self._ensure_vector_resources():
+            return
+
+        try:
+            vectors = []
+            for chunk in chunks:
+                chunk_metadata = chunk.metadata or {}
+                chunk_text = (chunk.content or "")[:MAX_VECTOR_METADATA_TEXT_LENGTH]
+                metadata_payload = {
+                    'documentId': document_id,
+                    'chunkId': chunk.chunk_id,
+                    'chunkIndex': chunk_metadata.get('chunk_index'),
+                    'filename': chunk_metadata.get('document_filename'),
+                    'category': chunk_metadata.get('document_category'),
+                    'sourceKey': chunk_metadata.get('source_document_key'),
+                    'chunkText': chunk_text
+                }
+                metadata_payload = {k: v for k, v in metadata_payload.items() if v is not None}
+
+                vectors.append({
+                    'key': f"{document_id}#{chunk.chunk_id}",
+                    'data': {
+                        'float32': [float(x) for x in chunk.embedding]
+                    },
+                    'metadata': metadata_payload
+                })
+
+            batch_size = 50
+            for start in range(0, len(vectors), batch_size):
+                batch = vectors[start:start + batch_size]
+                s3vectors_client.put_vectors(
+                    vectorBucketName=self.vector_bucket_name,
+                    indexName=self.vector_index_name,
+                    vectors=batch
+                )
+
+            logger.info(f"Upserted {len(vectors)} vectors for document {document_id}")
+
+        except Exception as e:
+            logger.error(f"Error upserting vectors for document {document_id}: {e}")
     
     def process_document(self, document_data: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -124,7 +230,8 @@ class KBProcessor:
                     metadata={
                         'chunk_index': i,
                         'document_filename': kb_document.filename,
-                        'document_category': kb_document.category
+                        'document_category': kb_document.category,
+                        'source_document_key': kb_document.s3_key
                     }
                 )
                 embedded_chunks.append(chunk)
@@ -320,9 +427,12 @@ class KBProcessor:
                 Body=json.dumps(embeddings_data),
                 ContentType='application/json'
             )
-            
+
             logger.info(f"Stored embeddings for document {document_id} at {s3_key}")
-            
+
+            # Mirror embeddings into S3 Vector Search for ANN queries
+            self._upsert_vectors(document_id, chunks)
+
         except Exception as e:
             logger.error(f"Error storing embeddings: {e}")
             raise
