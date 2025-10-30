@@ -1,7 +1,7 @@
 locals {
   # Generate bucket name if not provided
   uploads_bucket_name = var.uploads_bucket_name != "" ? var.uploads_bucket_name : "${var.project_name}-${var.stage}-uploads-${random_id.bucket_suffix.hex}"
-  
+
   # Common tags
   common_tags = {
     Project     = var.project_name
@@ -22,10 +22,10 @@ resource "random_id" "bucket_suffix" {
 
 # DynamoDB table (equivalent to SST Dynamo)
 resource "aws_dynamodb_table" "main" {
-  name           = "${var.project_name}-${var.stage}-database"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "pk"
-  range_key      = "sk"
+  name         = "${var.project_name}-${var.stage}-database"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "pk"
+  range_key    = "sk"
 
   attribute {
     name = "pk"
@@ -48,10 +48,10 @@ resource "aws_dynamodb_table" "main" {
   }
 
   global_secondary_index {
-    name               = "GSI1"
-    hash_key           = "gsi1pk"
-    range_key          = "gsi1sk"
-    projection_type    = "ALL"
+    name            = "GSI1"
+    hash_key        = "gsi1pk"
+    range_key       = "gsi1sk"
+    projection_type = "ALL"
   }
 
   tags = local.common_tags
@@ -62,7 +62,7 @@ resource "aws_cognito_user_pool" "main" {
   name = "${var.project_name}-${var.stage}-user-pool"
 
   username_attributes = ["email"]
-  
+
   username_configuration {
     case_sensitive = false
   }
@@ -83,7 +83,7 @@ resource "aws_cognito_user_pool_client" "main" {
   user_pool_id = aws_cognito_user_pool.main.id
 
   generate_secret = false
-  
+
   explicit_auth_flows = [
     "ALLOW_ADMIN_USER_PASSWORD_AUTH",
     "ALLOW_USER_PASSWORD_AUTH",
@@ -108,7 +108,7 @@ resource "aws_cognito_user_pool_client" "main" {
 module "api_gateway" {
   source = "./modules/api_gateway_http"
 
-  project_name        = var.project_name
+  project_name       = var.project_name
   stage              = var.stage
   allowed_origins    = var.allowed_origins
   log_retention_days = var.log_retention_days
@@ -119,23 +119,23 @@ module "api_gateway" {
 module "uploads_bucket" {
   source = "./modules/s3_bucket"
 
-  bucket_name     = local.uploads_bucket_name
-  kms_key_id      = var.kms_key_id
-  allowed_origins = var.allowed_origins
-  enable_lifecycle = true
-  lifecycle_expiration_days = 365
+  bucket_name                                  = local.uploads_bucket_name
+  kms_key_id                                   = var.kms_key_id
+  allowed_origins                              = var.allowed_origins
+  enable_lifecycle                             = true
+  lifecycle_expiration_days                    = 365
   lifecycle_noncurrent_version_expiration_days = 30
-  tags = local.common_tags
+  tags                                         = local.common_tags
 }
 
 # MLOps S3 Buckets
 module "kb_raw_bucket" {
   source = "./modules/s3_bucket"
 
-  bucket_name     = "${var.project_name}-${var.stage}-kb-raw-${random_id.bucket_suffix.hex}"
-  kms_key_id      = var.kms_key_id
-  allowed_origins = var.allowed_origins
-  enable_lifecycle = false  # KB documents are long-term storage
+  bucket_name      = "${var.project_name}-${var.stage}-kb-raw-${random_id.bucket_suffix.hex}"
+  kms_key_id       = var.kms_key_id
+  allowed_origins  = var.allowed_origins
+  enable_lifecycle = false # KB documents are long-term storage
   tags = merge(local.common_tags, {
     Purpose = "MLOps Knowledge Base Raw Documents"
   })
@@ -144,10 +144,10 @@ module "kb_raw_bucket" {
 module "kb_vectors_bucket" {
   source = "./modules/s3_bucket"
 
-  bucket_name     = "${var.project_name}-${var.stage}-kb-vectors-${random_id.bucket_suffix.hex}"
-  kms_key_id      = var.kms_key_id
-  allowed_origins = var.allowed_origins
-  enable_lifecycle = false  # Vector embeddings are long-term storage
+  bucket_name      = "${var.project_name}-${var.stage}-kb-vectors-${random_id.bucket_suffix.hex}"
+  kms_key_id       = var.kms_key_id
+  allowed_origins  = var.allowed_origins
+  enable_lifecycle = false # Vector embeddings are long-term storage
   tags = merge(local.common_tags, {
     Purpose = "MLOps Knowledge Base Vector Embeddings"
   })
@@ -156,11 +156,11 @@ module "kb_vectors_bucket" {
 module "uploads_raw_bucket" {
   source = "./modules/s3_bucket"
 
-  bucket_name     = "${var.project_name}-${var.stage}-uploads-raw-${random_id.bucket_suffix.hex}"
-  kms_key_id      = var.kms_key_id
-  allowed_origins = var.allowed_origins
-  enable_lifecycle = true
-  lifecycle_expiration_days = 90  # User uploads expire after 90 days
+  bucket_name                                  = "${var.project_name}-${var.stage}-uploads-raw-${random_id.bucket_suffix.hex}"
+  kms_key_id                                   = var.kms_key_id
+  allowed_origins                              = var.allowed_origins
+  enable_lifecycle                             = true
+  lifecycle_expiration_days                    = 90 # User uploads expire after 90 days
   lifecycle_noncurrent_version_expiration_days = 7
   tags = merge(local.common_tags, {
     Purpose = "MLOps User Document Uploads"
@@ -170,11 +170,11 @@ module "uploads_raw_bucket" {
 module "analysis_reports_bucket" {
   source = "./modules/s3_bucket"
 
-  bucket_name     = "${var.project_name}-${var.stage}-analysis-reports-${random_id.bucket_suffix.hex}"
-  kms_key_id      = var.kms_key_id
-  allowed_origins = var.allowed_origins
-  enable_lifecycle = true
-  lifecycle_expiration_days = 365  # Analysis reports kept for 1 year
+  bucket_name                                  = "${var.project_name}-${var.stage}-analysis-reports-${random_id.bucket_suffix.hex}"
+  kms_key_id                                   = var.kms_key_id
+  allowed_origins                              = var.allowed_origins
+  enable_lifecycle                             = true
+  lifecycle_expiration_days                    = 365 # Analysis reports kept for 1 year
   lifecycle_noncurrent_version_expiration_days = 30
   tags = merge(local.common_tags, {
     Purpose = "MLOps Document Analysis Reports"
@@ -286,16 +286,16 @@ resource "aws_ssm_parameter" "nextauth_secret" {
 module "auth_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "auth"
-  zip_file_path  = "../../backend/dist/auth.zip"
-  handler        = "handler.handler"
-  timeout        = var.lambda_timeout
-  memory_size    = var.lambda_memory_size
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "auth"
+  zip_file_path = "../../backend/dist/auth.zip"
+  handler       = "handler.handler"
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -303,8 +303,8 @@ module "auth_lambda" {
   policy_statements = local.base_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # API Gateway Routes for Authentication
@@ -324,16 +324,16 @@ resource "aws_apigatewayv2_route" "auth_session" {
 module "stripe_checkout_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "stripe-checkout"
-  zip_file_path  = "../../backend/dist/stripe-checkout.zip"
-  handler        = "handler.handler"
-  timeout        = var.lambda_timeout
-  memory_size    = var.lambda_memory_size
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "stripe-checkout"
+  zip_file_path = "../../backend/dist/stripe-checkout.zip"
+  handler       = "handler.handler"
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -341,24 +341,24 @@ module "stripe_checkout_lambda" {
   policy_statements = local.base_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # Stripe Webhook Lambda
 module "stripe_webhook_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "stripe-webhook"
-  zip_file_path  = "../../backend/dist/stripe-webhook.zip"
-  handler        = "webhook.handler"
-  timeout        = var.lambda_timeout
-  memory_size    = var.lambda_memory_size
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "stripe-webhook"
+  zip_file_path = "../../backend/dist/stripe-webhook.zip"
+  handler       = "webhook.handler"
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -366,8 +366,8 @@ module "stripe_webhook_lambda" {
   policy_statements = local.base_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # API Gateway Routes for Stripe
@@ -399,16 +399,16 @@ resource "aws_apigatewayv2_route" "stripe_webhook" {
 module "subscription_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "subscription"
-  zip_file_path  = "../../backend/dist/subscription.zip"
-  handler        = "handler.handler"
-  timeout        = var.lambda_timeout
-  memory_size    = var.lambda_memory_size
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "subscription"
+  zip_file_path = "../../backend/dist/subscription.zip"
+  handler       = "handler.handler"
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -416,8 +416,8 @@ module "subscription_lambda" {
   policy_statements = local.base_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # API Gateway Routes for Subscription
@@ -437,16 +437,16 @@ resource "aws_apigatewayv2_route" "subscription_status" {
 module "ai_generate_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "ai-generate"
-  zip_file_path  = "../../backend/dist/ai-generate.zip"
-  handler        = "handler.handler"
-  timeout        = var.lambda_timeout
-  memory_size    = var.lambda_memory_size
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "ai-generate"
+  zip_file_path = "../../backend/dist/ai-generate.zip"
+  handler       = "handler.handler"
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -454,24 +454,24 @@ module "ai_generate_lambda" {
   policy_statements = local.ai_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # AI History Lambda
 module "ai_history_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "ai-history"
-  zip_file_path  = "../../backend/dist/ai-history.zip"
-  handler        = "history.handler"
-  timeout        = var.lambda_timeout
-  memory_size    = var.lambda_memory_size
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "ai-history"
+  zip_file_path = "../../backend/dist/ai-history.zip"
+  handler       = "history.handler"
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -479,8 +479,8 @@ module "ai_history_lambda" {
   policy_statements = local.base_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # API Gateway Routes for AI
@@ -512,16 +512,16 @@ resource "aws_apigatewayv2_route" "ai_history" {
 module "upload_url_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "upload-url"
-  zip_file_path  = "../../backend/dist/upload-url.zip"
-  handler        = "handler.handler"
-  timeout        = var.lambda_timeout
-  memory_size    = var.lambda_memory_size
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "upload-url"
+  zip_file_path = "../../backend/dist/upload-url.zip"
+  handler       = "handler.handler"
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     UPLOADS_BUCKET_NAME = module.uploads_bucket.bucket_name
   }
@@ -529,8 +529,8 @@ module "upload_url_lambda" {
   policy_statements = local.upload_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # MLOps Lambda Functions
@@ -539,16 +539,16 @@ module "upload_url_lambda" {
 module "kb_processor_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "kb-processor"
-  zip_file_path  = "../../backend/dist/kb-processor.zip"
-  handler        = "handler.handler"
-  timeout        = 300  # 5 minutes for document processing
-  memory_size    = 1024  # More memory for document processing
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "kb-processor"
+  zip_file_path = "../../backend/dist/kb-processor.zip"
+  handler       = "handler.handler"
+  timeout       = 300  # 5 minutes for document processing
+  memory_size   = 1024 # More memory for document processing
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -556,24 +556,24 @@ module "kb_processor_lambda" {
   policy_statements = local.mlops_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # Knowledge Base Management API Lambda
 module "kb_handler_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "kb-handler"
-  zip_file_path  = "../../backend/dist/kb-handler.zip"
-  handler        = "handler.handler"
-  timeout        = var.lambda_timeout
-  memory_size    = var.lambda_memory_size
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "kb-handler"
+  zip_file_path = "../../backend/dist/kb-handler.zip"
+  handler       = "handler.handler"
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -581,24 +581,24 @@ module "kb_handler_lambda" {
   policy_statements = local.mlops_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # Document Analyzer Lambda
 module "document_analyzer_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "document-analyzer"
-  zip_file_path  = "../../backend/dist/document-analyzer.zip"
-  handler        = "handler.handler"
-  timeout        = 300  # 5 minutes for analysis
-  memory_size    = 1024  # More memory for analysis
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "document-analyzer"
+  zip_file_path = "../../backend/dist/document-analyzer.zip"
+  handler       = "handler.handler"
+  timeout       = 900  # Allow up to 15 minutes for full document analysis
+  memory_size   = 2048 # Extra memory headroom for embeddings
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -606,24 +606,24 @@ module "document_analyzer_lambda" {
   policy_statements = local.mlops_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # Analysis Handler Lambda
 module "analysis_handler_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "analysis-handler"
-  zip_file_path  = "../../backend/dist/analysis-handler.zip"
-  handler        = "handler.handler"
-  timeout        = var.lambda_timeout
-  memory_size    = var.lambda_memory_size
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "analysis-handler"
+  zip_file_path = "../../backend/dist/analysis-handler.zip"
+  handler       = "handler.handler"
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -631,24 +631,24 @@ module "analysis_handler_lambda" {
   policy_statements = local.mlops_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # RAG Processor Lambda
 module "rag_processor_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "rag-processor"
-  zip_file_path  = "../../backend/dist/rag-processor.zip"
-  handler        = "handler.handler"
-  timeout        = 120  # 2 minutes for RAG processing
-  memory_size    = 1024  # More memory for vector operations
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "rag-processor"
+  zip_file_path = "../../backend/dist/rag-processor.zip"
+  handler       = "handler.handler"
+  timeout       = 120  # 2 minutes for RAG processing
+  memory_size   = 1024 # More memory for vector operations
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -656,24 +656,24 @@ module "rag_processor_lambda" {
   policy_statements = local.mlops_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # RAG Handler Lambda
 module "rag_handler_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "rag-handler"
-  zip_file_path  = "../../backend/dist/rag-handler.zip"
-  handler        = "handler.handler"
-  timeout        = var.lambda_timeout
-  memory_size    = var.lambda_memory_size
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "rag-handler"
+  zip_file_path = "../../backend/dist/rag-handler.zip"
+  handler       = "handler.handler"
+  timeout       = var.lambda_timeout
+  memory_size   = var.lambda_memory_size
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -681,24 +681,24 @@ module "rag_handler_lambda" {
   policy_statements = local.mlops_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # MLOps Health Check Lambda
 module "mlops_health_lambda" {
   source = "./modules/lambda_function"
 
-  project_name    = var.project_name
-  stage          = var.stage
-  function_name  = "mlops-health"
-  zip_file_path  = "../../backend/dist/mlops-health.zip"
-  handler        = "handler.handler"
-  timeout        = 30  # Short timeout for health checks
-  memory_size    = 256  # Minimal memory for health checks
+  project_name  = var.project_name
+  stage         = var.stage
+  function_name = "mlops-health"
+  zip_file_path = "../../backend/dist/mlops-health.zip"
+  handler       = "handler.handler"
+  timeout       = 30  # Short timeout for health checks
+  memory_size   = 256 # Minimal memory for health checks
 
   environment_variables = {
-    PROJECT_NAME         = var.project_name
+    PROJECT_NAME        = var.project_name
     STAGE               = var.stage
     DATABASE_TABLE_NAME = aws_dynamodb_table.main.name
   }
@@ -706,8 +706,8 @@ module "mlops_health_lambda" {
   policy_statements = local.mlops_policy_statements
 
   api_gateway_execution_arn = module.api_gateway.execution_arn
-  log_retention_days       = var.log_retention_days
-  tags                    = local.common_tags
+  log_retention_days        = var.log_retention_days
+  tags                      = local.common_tags
 }
 
 # API Gateway Routes for Upload
@@ -1103,7 +1103,7 @@ resource "aws_cloudwatch_metric_alarm" "high_api_latency" {
   namespace           = "AWS/ApiGateway"
   period              = "300"
   statistic           = "Average"
-  threshold           = "5000"  # 5 seconds
+  threshold           = "5000" # 5 seconds
   alarm_description   = "High API Gateway integration latency"
   treat_missing_data  = "notBreaching"
 
@@ -1144,7 +1144,7 @@ resource "aws_cloudwatch_metric_alarm" "kb_processor_duration" {
   namespace           = "AWS/Lambda"
   period              = "300"
   statistic           = "Average"
-  threshold           = "240000"  # 4 minutes (80% of 5-minute timeout)
+  threshold           = "240000" # 4 minutes (80% of 5-minute timeout)
   alarm_description   = "KB processor taking too long"
   treat_missing_data  = "notBreaching"
 
@@ -1183,7 +1183,7 @@ resource "aws_cloudwatch_metric_alarm" "document_analyzer_duration" {
   namespace           = "AWS/Lambda"
   period              = "300"
   statistic           = "Average"
-  threshold           = "240000"  # 4 minutes
+  threshold           = "240000" # 4 minutes
   alarm_description   = "Document analyzer taking too long"
   treat_missing_data  = "notBreaching"
 

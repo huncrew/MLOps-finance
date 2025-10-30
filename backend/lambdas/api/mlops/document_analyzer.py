@@ -50,8 +50,8 @@ class DocumentAnalyzer:
         self.table = dynamodb.Table(self.table_name) if dynamodb else None
         
         # Analysis settings
-        self.max_chunk_size = 1000
-        self.chunk_overlap = 200
+        self.max_chunk_size = 3000
+        self.chunk_overlap = 400
         self.similarity_threshold = 0.7
         self.max_kb_matches = 10
         
