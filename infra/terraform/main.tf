@@ -13,8 +13,13 @@ locals {
   ssm_prefix = "/${var.project_name}/${var.stage}"
 
   # Vector search resources
-  vector_bucket_name = "${var.project_name}-${var.stage}-vectors-${random_id.bucket_suffix.hex}"
-  vector_index_name  = "${var.project_name}-${var.stage}-kb-index"
+  vector_bucket_name         = "${var.project_name}-${var.stage}-vectors-${random_id.bucket_suffix.hex}"
+  vector_index_name          = "${var.project_name}-${var.stage}-kb-index"
+  frontend_domain_parts      = split(".", var.frontend_domain_name)
+  frontend_root_domain_parts = slice(local.frontend_domain_parts, length(local.frontend_domain_parts) - 2, length(local.frontend_domain_parts))
+  frontend_root_domain       = join(".", local.frontend_root_domain_parts)
+  frontend_subdomain         = length(local.frontend_domain_parts) > length(local.frontend_root_domain_parts) ? join(".", slice(local.frontend_domain_parts, 0, length(local.frontend_domain_parts) - length(local.frontend_root_domain_parts))) : ""
+  frontend_bucket_name       = join("-", local.frontend_domain_parts)
 }
 
 data "aws_caller_identity" "current" {}
@@ -248,6 +253,199 @@ resource "aws_ssm_parameter" "analysis_reports_bucket_name" {
   type  = "String"
   value = module.analysis_reports_bucket.bucket_name
   tags  = local.common_tags
+}
+
+# Frontend hosting resources
+data "aws_route53_zone" "frontend" {
+  name         = "${local.frontend_root_domain}."
+  private_zone = false
+}
+
+resource "aws_acm_certificate" "frontend" {
+  domain_name       = var.frontend_domain_name
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "frontend_cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.frontend.domain_validation_options : dvo.domain_name => {
+      name  = dvo.resource_record_name
+      type  = dvo.resource_record_type
+      value = dvo.resource_record_value
+    }
+  }
+
+  zone_id = data.aws_route53_zone.frontend.zone_id
+  name    = each.value.name
+  type    = each.value.type
+  records = [each.value.value]
+  ttl     = 60
+}
+
+resource "aws_acm_certificate_validation" "frontend" {
+  certificate_arn         = aws_acm_certificate.frontend.arn
+  validation_record_fqdns = [for record in aws_route53_record.frontend_cert_validation : record.fqdn]
+}
+
+resource "aws_s3_bucket" "frontend" {
+  bucket        = local.frontend_bucket_name
+  force_destroy = true
+  tags          = local.common_tags
+}
+
+resource "aws_s3_bucket_ownership_controls" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "frontend" {
+  bucket                  = aws_s3_bucket.frontend.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_cloudfront_origin_access_control" "frontend" {
+  name                              = "${var.project_name}-${var.stage}-frontend-oac"
+  description                       = "OAC for ${var.frontend_domain_name}"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+resource "aws_cloudfront_distribution" "frontend" {
+  enabled             = true
+  aliases             = [var.frontend_domain_name]
+  price_class         = "PriceClass_100"
+  default_root_object = "index.html"
+
+  origin {
+    domain_name              = aws_s3_bucket.frontend.bucket_regional_domain_name
+    origin_id                = "frontend-s3-origin"
+    origin_access_control_id = aws_cloudfront_origin_access_control.frontend.id
+  }
+
+  default_cache_behavior {
+    allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = "frontend-s3-origin"
+    viewer_protocol_policy = "redirect-to-https"
+
+    compress = true
+
+    forwarded_values {
+      query_string = true
+
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl     = 0
+    default_ttl = 3600
+    max_ttl     = 86400
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    acm_certificate_arn      = aws_acm_certificate_validation.frontend.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+
+  custom_error_response {
+    error_code            = 403
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0
+  }
+
+  custom_error_response {
+    error_code            = 404
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0
+  }
+
+  tags = merge(local.common_tags, {
+    Component = "frontend"
+  })
+
+  depends_on = [aws_acm_certificate_validation.frontend]
+}
+
+resource "aws_s3_bucket_policy" "frontend" {
+  bucket = aws_s3_bucket.frontend.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowCloudFrontServicePrincipalReadOnly"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
+        Action   = ["s3:GetObject"]
+        Resource = ["${aws_s3_bucket.frontend.arn}/*"]
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.frontend.arn
+          }
+        }
+      }
+    ]
+  })
+
+  depends_on = [
+    aws_cloudfront_distribution.frontend,
+    aws_s3_bucket_public_access_block.frontend,
+    aws_s3_bucket_ownership_controls.frontend
+  ]
+}
+
+resource "aws_route53_record" "frontend" {
+  zone_id         = data.aws_route53_zone.frontend.zone_id
+  name            = local.frontend_subdomain != "" ? local.frontend_subdomain : local.frontend_root_domain
+  type            = "A"
+  allow_overwrite = true
+
+  alias {
+    name                   = aws_cloudfront_distribution.frontend.domain_name
+    zone_id                = aws_cloudfront_distribution.frontend.hosted_zone_id
+    evaluate_target_health = false
+  }
 }
 
 resource "aws_ssm_parameter" "cognito_user_pool_id" {

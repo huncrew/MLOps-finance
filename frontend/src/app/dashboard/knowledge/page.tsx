@@ -19,10 +19,20 @@ import {
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 
+interface KnowledgeDocument {
+  id: string;
+  filename: string;
+  category: string;
+  status: string;
+  uploadDate?: string;
+  chunkCount: number;
+  size: string;
+}
+
 export default function KnowledgeBasePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [kbDocs, setKbDocs] = useState<any[]>([]);
+  const [kbDocs, setKbDocs] = useState<KnowledgeDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [categories, setCategories] = useState<string[]>(["all"]);
 
@@ -38,7 +48,7 @@ export default function KnowledgeBasePage() {
         const payload = response.data as any;
         const documents = payload.documents ?? payload.data?.documents ?? [];
 
-        const normalized = documents.map((doc: any) => {
+        const normalized: KnowledgeDocument[] = documents.map((doc: any) => {
           const status = doc.embeddingStatus || doc.status || 'pending';
           const sizeValue = doc.size;
           let displaySize = '—';
@@ -60,7 +70,7 @@ export default function KnowledgeBasePage() {
         });
 
         setKbDocs(normalized);
-        const uniqueCategories = Array.from(new Set(normalized.map((doc: any) => doc.category).filter(Boolean)));
+        const uniqueCategories = Array.from(new Set(normalized.map((doc) => doc.category)));
         setCategories(["all", ...uniqueCategories]);
       }
     } catch (error) {

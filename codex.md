@@ -11,7 +11,14 @@ We write clean code with:
 
 ## Context & Prompts
 
-You will receive context and prompts to guide your work. Starting project context and architecture can be found in the `docs/` directory and should be referenced as needed.
+You will receive context and prompts to guide your work. Starting project context and architecture can be found in the `docs/` directory and **must be followed exactly**.
+
+**CRITICAL**: When implementing features:
+1. Read and follow the architecture specifications in `docs/architecture/`
+2. Use the exact AWS services specified (e.g., S3 vectors, not DynamoDB)
+3. Implement with specified libraries (e.g., LangChain if mentioned)
+4. Do NOT create mock/placeholder implementations
+5. Do NOT substitute simpler services without explicit approval
 
 ## Primary Entry Points
 

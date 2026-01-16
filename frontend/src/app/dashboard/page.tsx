@@ -168,7 +168,8 @@ export default function DashboardPage() {
 
   const handleViewAnalysis = (analysisId: string) => {
     console.log("View analysis:", analysisId);
-    // TODO: Navigate to analysis detail page
+    // Navigate to documents page with analysis ID in URL
+    window.location.href = `/dashboard/documents?analysisId=${analysisId}`;
   };
 
   const handleViewQuery = (queryId: string) => {

@@ -54,3 +54,8 @@ variable "lambda_memory_size" {
   type        = number
   default     = 512
 }
+
+variable "frontend_domain_name" {
+  description = "Primary domain name to serve the frontend application"
+  type        = string
+}

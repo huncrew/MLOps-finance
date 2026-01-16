@@ -68,3 +68,23 @@ output "analysis_reports_bucket_name" {
   description = "MLOps analysis reports bucket name"
   value       = module.analysis_reports_bucket.bucket_name
 }
+
+output "frontend_bucket_name" {
+  description = "S3 bucket hosting the frontend static assets"
+  value       = aws_s3_bucket.frontend.bucket
+}
+
+output "frontend_domain_name" {
+  description = "Primary domain name serving the frontend"
+  value       = var.frontend_domain_name
+}
+
+output "frontend_cloudfront_domain_name" {
+  description = "CloudFront distribution domain name for the frontend"
+  value       = aws_cloudfront_distribution.frontend.domain_name
+}
+
+output "frontend_cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for cache invalidations"
+  value       = aws_cloudfront_distribution.frontend.id
+}

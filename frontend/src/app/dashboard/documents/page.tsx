@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { apiClient } from "@/lib/api";
+import { AnalysisResults } from "@/components/analysis-results";
 import { DocumentUpload } from "@/components/document-upload";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,10 +24,40 @@ import {
 export default function DocumentsPage() {
   const [analyses, setAnalyses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedAnalysis, setSelectedAnalysis] = useState<any>(null);
+  const [analysisDetails, setAnalysisDetails] = useState<any>(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
     loadAnalyses();
+    
+    // Check if there's an analysisId in the URL to auto-open
+    const urlParams = new URLSearchParams(window.location.search);
+    const analysisId = urlParams.get('analysisId');
+    if (analysisId) {
+      // Wait a bit for analyses to load, then auto-open the analysis
+      setTimeout(() => {
+        const analysis = analyses.find(a => a.id === analysisId);
+        if (analysis) {
+          handleViewDetails(analysis);
+        }
+      }, 1000);
+    }
   }, []);
+
+  // Also check when analyses are loaded
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const analysisId = urlParams.get('analysisId');
+    if (analysisId && analyses.length > 0) {
+      const analysis = analyses.find(a => a.id === analysisId);
+      if (analysis) {
+        handleViewDetails(analysis);
+        // Clear the URL parameter
+        window.history.replaceState({}, '', '/dashboard/documents');
+      }
+    }
+  }, [analyses]);
 
   const loadAnalyses = async () => {
     setIsLoading(true);
@@ -36,19 +67,20 @@ export default function DocumentsPage() {
         // The backend returns {success: true, data: {success: true, analyses: [...]}}
         const analysesArray = response.data.data?.analyses || response.data.analyses || [];
         const formattedAnalyses = analysesArray.map((item: any) => ({
-          id: item.analysis_id || item.id,
+          id: item.analysis_id || item.analysisId || item.id,
           documentName: item.document_name || item.filename || 'Unknown Document',
-          uploadDate: item.created_date || item.uploadDate || new Date().toISOString(),
+          uploadDate: item.created_date || item.createdDate || item.uploadDate || new Date().toISOString(),
           status: item.status || 'completed',
           complianceScore: Math.round((parseFloat(item.summary?.overallScore || item.overall_score || 0)) * 100),
           riskLevel: parseFloat(item.summary?.overallScore || item.overall_score || 0) >= 0.8 ? 'low' : parseFloat(item.summary?.overallScore || item.overall_score || 0) >= 0.6 ? 'medium' : 'high',
           frameworks: item.frameworks || ['Basel III', 'GDPR'],
           findings: {
-            gaps: item.compliance_gaps?.length || 0,
-            risks: item.risk_flags?.length || 0,
+            gaps: item.compliance_gaps?.length || item.summary?.complianceGapsCount || 0,
+            risks: item.risk_flags?.length || item.summary?.riskFlagsCount || 0,
             recommendations: item.recommendations?.length || 0
           }
         }));
+        console.log('Formatted analyses:', formattedAnalyses);
         setAnalyses(formattedAnalyses);
       }
     } catch (error) {
@@ -69,6 +101,116 @@ export default function DocumentsPage() {
   const handleUploadError = (error: string) => {
     console.error("Upload error:", error);
     // Show error toast or notification
+  };
+
+  const normalizeNumber = (value: unknown, fallback = 0): number => {
+    if (typeof value === 'number' && !Number.isNaN(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value);
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+    return fallback;
+  };
+
+  const normalizeArray = <T,>(value: unknown): T[] => {
+    if (Array.isArray(value)) {
+      return value as T[];
+    }
+    return [];
+  };
+
+  const handleViewDetails = async (analysis: any) => {
+    console.log('View Details clicked', analysis);
+
+    if (analysis.status !== 'completed') {
+      alert('Analysis is not completed yet. Status: ' + analysis.status);
+      return;
+    }
+
+    setLoadingDetails(true);
+    try {
+      const response = await apiClient.getAnalysisResults(analysis.id);
+      if (response.success && response.data) {
+        const rawResults =
+          response.data.report?.results ||
+          response.data.results ||
+          response.data.report ||
+          {};
+
+        const policyMatches =
+          normalizeArray<any>(rawResults.policyMatches ?? rawResults.policy_matches)
+            .map((match: any) => ({
+              policyId: match.policyId ?? match.policy_id ?? '',
+              policyName: match.policyName ?? match.policy_name ?? 'Policy Match',
+              matchScore: normalizeNumber(match.matchScore ?? match.match_score, 0),
+              relevantSections:
+                normalizeArray<string>(match.relevantSections ?? match.relevant_sections),
+              documentReference:
+                match.documentReference ?? match.document_reference ?? ''
+            }));
+
+        const complianceGaps =
+          normalizeArray<any>(rawResults.complianceGaps ?? rawResults.compliance_gaps)
+            .map((gap: any) => ({
+              gapType: gap.gapType ?? gap.gap_type ?? 'gap',
+              severity: (gap.severity ?? 'medium') as 'low' | 'medium' | 'high',
+              description: gap.description ?? '',
+              recommendation: gap.recommendation ?? ''
+            }));
+
+        const riskFlags =
+          normalizeArray<any>(rawResults.riskFlags ?? rawResults.risk_flags)
+            .map((flag: any) => ({
+              riskType: flag.riskType ?? flag.risk_type ?? 'risk',
+              severity: (flag.severity ?? 'medium') as 'low' | 'medium' | 'high',
+              description: flag.description ?? '',
+              impact: flag.impact ?? ''
+            }));
+
+        const analysisResults = {
+          analysisId: analysis.id,
+          documentName: analysis.documentName,
+          analysisDate: analysis.uploadDate,
+          overallScore: normalizeNumber(
+            rawResults.overallScore ?? rawResults.overall_score,
+            analysis.complianceScore / 100
+          ),
+          confidenceScore: normalizeNumber(
+            rawResults.confidenceScore ?? rawResults.confidence_score,
+            0.5
+          ),
+          processingTimeMs: normalizeNumber(
+            rawResults.processingTimeMs ?? rawResults.processing_time_ms,
+            0
+          ),
+          policyMatches,
+          complianceGaps,
+          riskFlags,
+          recommendations: normalizeArray<string>(
+            rawResults.recommendations
+          )
+        };
+        
+        setSelectedAnalysis(analysis);
+        setAnalysisDetails(analysisResults);
+      } else {
+        alert('Failed to load analysis details: ' + (response.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error loading analysis details:', error);
+      alert('Failed to load analysis details');
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
+  const handleCloseDetails = () => {
+    setSelectedAnalysis(null);
+    setAnalysisDetails(null);
   };
 
   const getStatusBadge = (status: string) => {
@@ -300,9 +442,14 @@ export default function DocumentsPage() {
 
                         {/* Actions */}
                         <div className="flex items-center space-x-3 pt-4 border-t">
-                          <Button size="sm" className="flex items-center">
+                          <Button 
+                            size="sm" 
+                            className="flex items-center"
+                            onClick={() => handleViewDetails(analysis)}
+                            disabled={loadingDetails}
+                          >
                             <Eye className="h-4 w-4 mr-2" />
-                            View Details
+                            {loadingDetails ? 'Loading...' : 'View Details'}
                           </Button>
                           <Button size="sm" variant="outline" className="flex items-center">
                             <Download className="h-4 w-4 mr-2" />
@@ -351,6 +498,33 @@ export default function DocumentsPage() {
           </div>
         </div>
       </div>
+
+      {/* Analysis Details Modal */}
+      {selectedAnalysis && analysisDetails && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">Analysis Details</h2>
+                <Button variant="outline" onClick={handleCloseDetails}>
+                  ✕ Close
+                </Button>
+              </div>
+              
+              <AnalysisResults 
+                results={analysisDetails}
+                onDownloadReport={() => {
+                  // TODO: Implement download functionality
+                  alert('Download functionality coming soon');
+                }}
+                onViewDetails={(analysisId) => {
+                  console.log('View details for:', analysisId);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }
